@@ -23,6 +23,7 @@ I am using:
 ## Hardware
 * GateMate&trade; FPGA from [Cologne Chip](https://www.colognechip.com/programmable-logic/gatemate/) CCGM1A1 on the [Olimex development board](https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware).
 * A cheap (~€16) video capture USB stick to display the VGA output of the FPGA onto my HDMI monitor in a window using [Gucview](https://guvcview.sourceforge.net/)
+  <p><img src="https://github.com/B3rndK/GM64/assets/47975140/178d5aa9-a7b8-496d-859b-2568bc66423e" width="640"></p>(My IDE with the FPGA's video output in Gucview)<br><br>
 * RIGOL DS1202Z-E Oscilloscope
   
 ## References
