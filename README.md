@@ -1,5 +1,5 @@
 # GM64
-Rebuilding the Commodore 64 using a Cologne Chip GateMate&trade; [FPGA development board by Olimex](https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware). 
+Rebuilding the Commodore 64 using a [Cologne Chip GateMate&trade;](https://www.colognechip.com) [FPGA development board by Olimex](https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware). 
 
 ## Intention
 Just like my C64 emulation project on the RP2040 using the [Olimex Neo6502 retro computer](https://github.com/B3rndK/C64Neo6502), this project is for fun. I always wanted to do some chip design myself like the ancestors did for the Commodore 64 or the Commodore Amiga.
