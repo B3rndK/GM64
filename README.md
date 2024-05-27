@@ -1,5 +1,5 @@
 # GM64
-Rebuilding  a C64 using a Cologne Chip GateMate FPGA
+Rebuilding a C64 using a Cologne Chip GateMate FPGA development board by Olimex. Please see https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware
 
 Soon...
 
