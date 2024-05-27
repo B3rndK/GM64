@@ -1,6 +1,31 @@
 # GM64
-Rebuilding a C64 using a Cologne Chip GateMate FPGA development board by Olimex. Please see https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware
+Rebuilding a C64 using a Cologne Chip GateMate(R) FPGA development board by Olimex. Please see https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware
 
-Soon...
+## Intention
+Just like my C64 emulation project on the RP2040 using the Olimex Neo6502 minicomputer (https://github.com/B3rndK/C64Neo6502), this project is for fun. I always wanted to do some chip design like the ancestors for the Commodore C64 or the Commodore Amiga.
+Now that FPGA technology and the required design software came down from several hundred thousand Euros to about fifty Euros, this goal came into reach. It is both fun and education because I did not work on a bigger FPGA based project before.
 
+## Project status 
+The project has just started. 
+
+## Dependencies
+I am using:
+
+* Cologne Chip's GateMate&trade; SDK 
+* Yosys Open Synthesis Suite (https://yosyshq.net/yosys)
+* Icarus Verilog (https://steveicarus.github.io/iverilog)
+* GTKWave wave viewer (https://gtkwave.sourceforge.net)
+* 6502 Verilog HDL model by Arlet Ottens (https://github.com/Arlet/verilog-6502)
+* Make utility
+* Ubuntu Linux
+  
+## Hardware
+
+* GateMate&trade; FPGA from Cologne Chip (https://www.colognechip.com/programmable-logic/gatemate/) CCGM1A1 on the Olimex development board (https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware).
+* A cheap (~€16) video capture USB stick to display the VGA output of the FPGA onto my HDMI monitor in a window using Gucview (https://guvcview.sourceforge.net/)
+
+## References
+Thanks to Steven Hugg's https://8bitworkshop.com/.
+
+## What to experience the C64 right now already?
 In the meantime check out my C64 emulation on the Olimex RP2040 Neo6502 minicomputer: https://github.com/B3rndK/C64Neo6502
