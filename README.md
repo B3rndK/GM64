@@ -1,15 +1,25 @@
 # GM64
-Rebuilding a C64 using a Cologne Chip GateMate(R) FPGA development board by Olimex. Please see https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware
+Rebuilding the Commodore 64 using a Cologne Chip GateMate&trade; [FPGA development board by Olimex](https://www.olimex.com/Products/FPGA/GateMate/GateMateA1-EVB/open-source-hardware). 
 
 ## Intention
-Just like my C64 emulation project on the RP2040 using the Olimex Neo6502 minicomputer (https://github.com/B3rndK/C64Neo6502), this project is for fun. I always wanted to do some chip design myself like the ancestors for the Commodore C64 or the Commodore Amiga.
-Now that FPGA technology and the required design software came down from several hundred thousand Euros to about fifty Euros, this goal came into reach. It is both fun and education because I did not work on a bigger FPGA based project before nor did I have the change to work using FPGAs in my current job so far.
+Just like my C64 emulation project on the RP2040 using the [Olimex Neo6502 retro computer](https://github.com/B3rndK/C64Neo6502), this project is for fun. I always wanted to do some chip design myself like the ancestors did for the Commodore 64 or the Commodore Amiga.
+Now that FPGA development boards and the design software came down from several hundred thousand to about fifty Euros, this goal now comes into reach. It is both fun and education because I did not work on a bigger FPGA based project before nor did I had the chance to work using FPGAs in my current job.
 
 ## Project status 
-The project has just started. 
+The project has just started. The next steps are as follows:
 
+- [x]Setting up the IDE
+- [x]Makefiles and scripts to compile and test each module individually
+- [x]Create and upload bitstream to FPGA
+- [x]System wide monostable multivibrator type reset module
+- [x]Basic video output
+- [ ]LY68S3200 PSRAM (4Mx8) BUS controller
+- [ ]6502 loading/storing/executing code from PSRAM
+- [ ]Video module accessing PSRAM
+- [ ] ... much, much more...
+  
 ## Dependencies
-I am using:
+Software I am using:
 
 * [Cologne Chip's GateMate&trade; SDK](https://www.colognechip.com/programmable-logic/gatemate/) 
 * [Yosys Open Synthesis Suite](https://yosyshq.net/yosys)
