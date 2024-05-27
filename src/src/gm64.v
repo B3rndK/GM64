@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C)2024 Bernd Krekeler, Germany, Herne
+// Copyright (C)2024 Bernd Krekeler, Herne, Germany
 
 `include "../syncGen/src/syncGen.v"
 `include "../VIC6569/src/VIC6569.v"

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C)2024 Bernd Krekeler, Germany, Herne
+// Copyright (C)2024 Bernd Krekeler, Herne, Germany
 
 /*
     Reset functionality, will reset for 500ms after FPGA signals start or
