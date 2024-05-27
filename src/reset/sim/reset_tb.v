@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C)2024 Bernd Krekeler, Germany, Herne
+// Copyright (C)2024 Bernd Krekeler, Herne, Germany
 
 `timescale 1ns / 1ns
 
