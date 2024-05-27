@@ -27,5 +27,5 @@ I am using:
 ## References
 Thanks to Steven Hugg's https://8bitworkshop.com/.
 
-## What to experience the C64 right now already?
-In the meantime check out my C64 emulation on the Olimex RP2040 Neo6502 minicomputer: https://github.com/B3rndK/C64Neo6502
+### Can't wait and want to experience the things to come right now?
+In the meantime check out my C64 emulation on the Olimex RP2040 Neo6502 minicomputer: https://github.com/B3rndK/C64Neo6502. It is my software emulation written in C++ of the C64. This was a kind of finger excercise / blueprint for this project.
