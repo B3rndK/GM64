@@ -28,7 +28,7 @@ Software I am using:
 * [Cologne Chip's GateMate&trade; SDK](https://www.colognechip.com/programmable-logic/gatemate/) 
 * [6502 Verilog HDL model by Arlet Ottens](https://github.com/Arlet/verilog-6502)
 * [Microsoft Visual Studio Code](https://code.visualstudio.com)
-* [Gnu Make 4.3](http://gnu.org)
+* [Gnu Make](https://www.gnu.org/software/make/)
 * [Ubuntu Linux](https://ubuntu.com)
     
 ## Hardware
