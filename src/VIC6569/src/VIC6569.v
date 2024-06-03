@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024 Bernd Krekeler, Germany, Herne
 
-`include "../../syncGen/src/syncGen.v"
+`ifndef VIC6569_H
+`define VIC6569_H
 
 /*
     MOS 6569, "VIC-II"
 */
 
-module VIC6569(clk, reset, o_hsync, o_vsync, o_red, o_green, o_blue);
-
-  input clk, reset;
-  output o_hsync, o_vsync;
-  output [3:0] o_red;
-  output [3:0] o_green;
-  output [3:0] o_blue;
+module VIC6569(input clk, 
+               input reset, 
+               output o_hsync, 
+               output o_vsync, 
+               output [3:0] o_red, 
+               output [3:0] o_green, 
+               output [3:0] o_blue);
 
   reg [3:0] red;
   reg [3:0] green;
@@ -33,9 +34,14 @@ module VIC6569(clk, reset, o_hsync, o_vsync, o_red, o_green, o_blue);
     .o_vpos(o_vpos)
   );
 
-  always @(posedge clk, posedge reset)
+  always @(posedge clk or posedge reset)
   begin
-    if (!reset) begin
+    if (reset) begin
+      red=0;
+      green=0;       
+      blue=0;       
+    end 
+    else begin
       if (o_vpos>=0 && o_vpos<556) begin
         red=o_vpos % 15;
         green=o_vpos % 15;       
@@ -45,8 +51,7 @@ module VIC6569(clk, reset, o_hsync, o_vsync, o_red, o_green, o_blue);
         red=o_vpos % 15;
         green=0;       
         blue=0;       
-
-      end;
+      end
     end
   end
 
@@ -55,3 +60,5 @@ module VIC6569(clk, reset, o_hsync, o_vsync, o_red, o_green, o_blue);
   assign  o_blue = display_on ? blue  : 0;
   
 endmodule
+
+`endif

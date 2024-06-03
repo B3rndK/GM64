@@ -20,12 +20,14 @@ end
 initial begin
           // $sdf_annotate("reset_tb.sdf", U1);
           // $dumpoff; $dumpon;
-
           $dumpfile("sim/reset_tb.vcd");
           $dumpvars(0, reset_tb);
+#1        $display("No reset until FPGA reports restart: time=%3d, clk=%b, reset=%b",$time, clk, reset);
+#1        assert(reset==1);
+#100000   assert(reset==1);
 #1        $display("Reset on restart fpga: time=%3d, clk=%b, reset=%b",$time, clk, reset);
+#1        fpga_start=0;
 #1        fpga_start=1;
-#10       fpga_start=0;
           assert(reset==0);
 #1
 #9999999  $display("Finished. time=%3d, clk=%b, reset=%b",$time, clk, reset);

@@ -2,12 +2,13 @@
 EXE =
 
 ## Source root
-SRC=~/git/gm64
+SRC=~/git/GM64
 
 ## toolchain
 YOSYS = ~/GateMate/bin/yosys/yosys$(EXE)
 PR    = ~/GateMate/bin/p_r/p_r$(EXE)
 OFL   = ~/git/openFPGALoader/build/openFPGALoader$(EXE)
+OFLFLAGS =-b olimex_gatemateevb
 
 GTKW = /usr/bin/gtkwave
 IVL = iverilog
@@ -38,7 +39,7 @@ impl:
 	$(PR) -i net/$(TOP)_synth.v -o $(TOP) $(PRFLAGS) > log/$@.log
 
 jtag:
-	$(OFL) $(OFLFLAGS) -b olimex_gatemateevb $(TOP)_00.cfg
+	$(OFL) $(OFLFLAGS) $(TOP)_00.cfg
 
 jtag-flash:
 	$(OFL) $(OFLFLAGS) -b olimex_gatemateevb -f --verify $(TOP)_00.cfg
