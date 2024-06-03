@@ -1,27 +1,32 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024 Bernd Krekeler, Herne, Germany
 
+`ifndef RESET_H
+`define RESET_H
+
 /*
     Reset functionality, will reset for 500ms after FPGA signals start or
     when the specified button is pushed.
 */
-module reset(clk, fpga_but1, fpga_start, reset);
-  
-  input clk; // 10 Mhz std fpga clk
-  input fpga_start; // FPGA reports it is starting (programming finished)
-  input fpga_but1;
-  output reset;
+module reset(input clk,           // 10 Mhz std fpga clk
+             input fpga_but1, 
+             input fpga_start,    // FPGA reports it is starting (programming finished)
+             output reset);
 
-  // We will keep reset active for 500ms
-  localparam [22:0] DELAY_500MS=23'h4c4b40;
-  reg [22:0] counter=0;
+  localparam [22:0] DELAY_500MS=23'h4c4b40;   // We will keep reset active for 500ms
+  reg [22:0] counter=DELAY_500MS+1;
+   
+  always @(posedge clk, negedge fpga_but1 or negedge fpga_start) 
+  begin
+    if (!fpga_but1) counter<=0;
+    else if (!fpga_start) counter<=0;
+    else begin
+      if (counter<=DELAY_500MS) counter++;
+    end
+  end
 
   assign reset=!(counter<DELAY_500MS);
 
-  always @(posedge clk, negedge fpga_but1 or posedge fpga_start) 
-  begin
-    if (!fpga_but1) counter<=0;
-    else if (fpga_start) counter<=0;
-    else if (counter<=DELAY_500MS) counter++;
-  end
 endmodule
+
+`endif

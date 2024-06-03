@@ -9,17 +9,17 @@ Timing from: https://en.wikipedia.org/wiki/Video_Graphics_Array
 Based on Steven Hugg: https://github.com/sehugg/fpga-examples
 */
 
-module syncGen(clk, reset, o_hsync, o_vsync, o_display_on, o_hpos, o_vpos);
+module syncGen(input clk, 
+               input reset, 
+               output reg o_hsync, 
+               output reg o_vsync, 
+               output o_display_on, 
+               output reg [9:0] o_hpos, 
+               output reg [9:0] o_vpos);
 
-  input clk;
-  input reset;
-  output reg o_hsync, o_vsync;
-  output o_display_on;
-  output reg [9:0] o_hpos;
-  output reg [9:0] o_vpos;
 
   // horizontal constants PAL 720x576/50Hz for C64
-  
+   
   parameter H_DISPLAY       = 720; // horizontal display width
   parameter H_BACK          =  52; // horizontal left border (back porch)
   parameter H_FRONT         =  16; // horizontal right border (front porch)
