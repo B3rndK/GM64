@@ -11,7 +11,7 @@
 module reset(input clk,           // 10 Mhz std fpga clk
              input fpga_but1, 
              input fpga_start,    // FPGA reports it is starting (programming finished)
-             output reset);
+             output reset);       // low active
 
   localparam [22:0] DELAY_500MS=23'h4c4b40;   // We will keep reset active for 500ms
   reg [22:0] counter=DELAY_500MS+1;
