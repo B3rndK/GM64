@@ -10,12 +10,23 @@
 `include "../reset/src/reset.v"
 `include "../MOS6502/src/alu.v"
 `include "../MOS6502/src/cpu.v"
+`include "../memCtrl/src/memCtrl.v"
 
 module gm64(input clk0, 
             input reset, 
             input fpga_but1, 
             output o_hsync, 
             output o_vsync, 
+            output o_psram_cs,
+            output o_psram_sclk,
+            inout  wire io_psram_data0,
+            inout  wire io_psram_data1,
+            inout  wire io_psram_data2,
+            inout  wire io_psram_data3,
+            inout  wire io_psram_data4,
+            inout  wire io_psram_data5,
+            inout  wire io_psram_data6,
+            inout  wire io_psram_data7,            
             output [3:0] o_red, 
             output [3:0] o_green, 
             output [3:0] o_blue);
@@ -26,11 +37,14 @@ module gm64(input clk0,
   wire [7:0] dataIn;  // write to memory
   wire [7:0] dataOut; // read from memory
   wire WE; // out, WriteEnable
-  
+  wire memCtrlCE; // CE for memory controller    
   wire irq=0;
   wire rdy=1;
   wire nmi=0;
-  
+  wire writeToRam;
+  wire [3:0] numberOfBytesToWrite;
+  wire [15*7:0] dataToWrite;
+  wire [7:0] dataRead;
   wire [3:0] debugValue;
   reg [3:0] debug;
   assign debugValue=debug;
@@ -41,7 +55,23 @@ module gm64(input clk0,
 
   reset U1 (.clk(clk0), .fpga_but1(fpga_but1), .fpga_start(fpga_start), .reset(reset));  
   masterClk U2(.clk10Mhz(clk0),.clkRAM(clkRAM),.clkDot(clkDot),.clkVideo(clkVideo));
-
+  memCtrl U4(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .addrBus(addrBus), 
+    .numberOfBytesToWrite(numberOfBytesToWrite), 
+    .dataToWrite(dataToWrite), 
+    .dataRead(dataRead), 
+    .busy(busy),
+    .io_psram_data0(io_psram_data0),
+    .io_psram_data1(io_psram_data1),
+    .io_psram_data2(io_psram_data2),
+    .io_psram_data3(io_psram_data3),
+    .io_psram_data4(io_psram_data4),
+    .io_psram_data5(io_psram_data5),
+    .io_psram_data4(io_psram_data6),
+    .io_psram_data5(io_psram_data7),
+    .o_psram_cs(o_psram_cs),
+    .o_psram_sclk(o_psram_sclk)
+    );
+  
   VIC6569 U3 (
     .clk(clkVideo),
     .clkDot(clkDot),
