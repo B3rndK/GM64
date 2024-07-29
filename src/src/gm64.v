@@ -4,45 +4,92 @@
 `ifndef GM64_H
 `define GM64_H
 
-`include "../masterClk/src/masterClk.v"
+`include "../clockGen/src/clockGen.v"
 `include "../syncGen/src/syncGen.v"
 `include "../VIC6569/src/VIC6569.v"
 `include "../reset/src/reset.v"
 `include "../MOS6502/src/alu.v"
 `include "../MOS6502/src/cpu.v"
+`include "../memCtrl/src/memCtrl.v"
 
-module gm64(input clk0, 
+module gm64(input clk0, // 10Mhz coming from FPGA
             input reset, 
             input fpga_but1, 
             output o_hsync, 
             output o_vsync, 
+            output o_psram_cs,
+            output o_psram_sclk,
+            inout  wire io_psram_data0,
+            inout  wire io_psram_data1,
+            inout  wire io_psram_data2,
+            inout  wire io_psram_data3,
+            inout  wire io_psram_data4,
+            inout  wire io_psram_data5,
+            inout  wire io_psram_data6,
+            inout  wire io_psram_data7,            
             output [3:0] o_red, 
             output [3:0] o_green, 
-            output [3:0] o_blue);
+            output [3:0] o_blue,
+            // Test only
+            output o_clkRAM,
+            output o_clkDot,
+            output o_clkVideo
+            );
 
+ 
   wire clkVideo, clkRAM, clkDot, clkPhi0;
+
+  //assign o_clkRAM=clkRAM;
+  assign o_clkDot=clkDot;
+  //assign o_clkVideo=clkVideo;
   
   reg [15:0] addrBus; // out, address
   wire [7:0] dataIn;  // write to memory
   wire [7:0] dataOut; // read from memory
   wire WE; // out, WriteEnable
-  
+  wire memCtrlCE; // CE for memory controller    
   wire irq=0;
   wire rdy=1;
   wire nmi=0;
-  
+  wire writeToRam;
+  wire [3:0] numberOfBytesToWrite;
+  wire [15*7:0] dataToWrite;
+  wire [7:0] dataRead;
   wire [3:0] debugValue;
   reg [3:0] debug;
   assign debugValue=debug;
 
   CC_USR_RSTN usr_rstn_inst (
-   	.USR_RSTN(fpga_start) // FPGA is configured and starts running
+   	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
+  
+  reset U20 (.clk(clk0), .fpga_but1(fpga_but1), .fpgaStart(fpgaStart), .reset(reset));  
 
-  reset U1 (.clk(clk0), .fpga_but1(fpga_but1), .fpga_start(fpga_start), .reset(reset));  
-  masterClk U2(.clk10Mhz(clk0),.clkRAM(clkRAM),.clkDot(clkDot),.clkVideo(clkVideo));
+  clockGen U31 (.clk10Mhz (clk0),
+               .clkRAM (clkRAM),
+               .clkDot (clkDot),
+               .clkVideo (clkVideo),
+               .reset (!reset) // low active
+              );
 
-  VIC6569 U3 (
+  memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .addrBus(addrBus), 
+    .numberOfBytesToWrite(numberOfBytesToWrite), 
+    .dataToWrite(dataToWrite), 
+    .dataRead(dataRead), 
+    .busy(busy),
+    .io_psram_data0(io_psram_data0),
+    .io_psram_data1(io_psram_data1),
+    .io_psram_data2(io_psram_data2),
+    .io_psram_data3(io_psram_data3),
+    .io_psram_data4(io_psram_data4),
+    .io_psram_data5(io_psram_data5),
+    .io_psram_data4(io_psram_data6),
+    .io_psram_data5(io_psram_data7),
+    .o_psram_cs(o_psram_cs),
+    .o_psram_sclk(o_psram_sclk)
+    );
+  
+  VIC6569 U19 (
     .clk(clkVideo),
     .clkDot(clkDot),
     .reset(!reset),
@@ -55,10 +102,10 @@ module gm64(input clk0,
     .debugValue(debugValue) // testing only
   );
   
-  cpu CPU(.clk(clkPhi0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
+  cpu U7(.clk(clk0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
 
   
-  always @(posedge clkPhi0 or negedge reset)
+  always @(posedge clkRAM  or negedge reset)
   begin
     if (!reset) debug=1;
     else begin
@@ -80,7 +127,6 @@ module gm64(input clk0,
       if (addrBus==16'hd020 && WE) debug=2; // sta $d020 executed, show colour as positive response
     end
   end
-
 
 endmodule  
 
