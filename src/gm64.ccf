@@ -91,3 +91,11 @@ Pin_inout   "io_psram_data7"    Loc = "IO_WC_B8"; # PSRAM DATA7
 # PS2
 Pin_in  "ps2_clk" Loc = "IO_WB_A0";
 Pin_in  "ps2_data" Loc = "IO_WB_B0";
+
+
+# For testing via oscilloscope only
+Pin_out "o_clkRAM"    Loc="IO_NA_A0"; 100 Mhz clock for o_clkRAM
+Pin_out "o_clkDot"    Loc="IO_NB_A0"; 7.881984 Mhz clock for o_clkRAM
+Pin_out "o_clkVideo"  Loc="IO_EB_A8"; 24.8 Mhz clock for HDMI quirk video mode
+Pin_out "o_clk10Mhz"  Loc="IO_NA_A1"; 10 Mhz clk0
+
