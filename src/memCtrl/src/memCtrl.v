@@ -4,9 +4,11 @@
 `ifndef MEMCTRL_H
 `define MEMCTRL_H
 
-/* Memory controller interface
-   Supports concurrent access by clk that is, clock low = channel 1, 
-   clock high= channel 2*/
+/* 8-Bit Memory controller interface using LY68S3200 
+   32M (4Mx8) Bits Serial Pseudo-SRAM with SPI and QPI.
+   Single bytes are written 4x, so error correction would be possible 
+   by comparing the four bytes for equality (and taking the highest occuring value)
+   when in doubt, but this is not (yet) implemented. */
 
 typedef enum {
   stateReset=0,
@@ -14,21 +16,32 @@ typedef enum {
   stateInit_2=2,
   stateEnableQPI=3,
   stateIdle=4,
-  stateRead_1=5
+  stateWrite_1=5,
+  stateWrite_2=6,
+  stateWrite_3=7,
+  stateWrite_4=8,
+  stateWrite_5=9,
+  stateWrite_6=10,
+  stateRead_1=11,
+  stateRead_2=12,
+  stateRead_3=13,
+  stateRead_4=14,
+  stateRead_5=15
 } StateMachine;
 
 typedef enum bit[7:0] {
-  enableQPIMode=8'h35
+  enableQPIMode=8'h35,
+  SPIQuadWrite=8'h38,
+  SPIQuadRead=8'heb
 } QPICommands;
 
 module memCtrl( input            clk,
                 input            reset,
                 input            CE,    // 1-enable, 0-Z 
                 input            write, // 0-read, 1-write
-                input reg [6:0]  bank, // bank 0-63 forming a total of 4096KB
+                input reg [3:0]  bank, // bank 0-15 forming a total of 16*64KB(of 256KB)=4096KB 
                 input reg [15:0] addrBus,
-                input reg [3:0]  numberOfBytesToWrite,
-                input reg [15*7:0] dataToWrite,
+                input reg [7:0] dataToWrite,
                 output reg [7:0]   dataRead,
                 inout  wire io_psram_data0,
                 inout  wire io_psram_data1,
@@ -184,17 +197,24 @@ module memCtrl( input            clk,
             dataU7[0]=enableQPIMode[0];    
             dataU9[0]=enableQPIMode[0];
             psram_cs=HIGH;
+            state=stateIdle;
           end
+          default:
+            ;
         endcase
         shifter++;
       end
 
       stateIdle: begin
         isBusy=0;
+        
         if (CE) begin
           isBusy=1;
           address=addrBus;
-          if (!write) begin
+          if (write) begin
+            state=stateWrite_1;
+          end
+          else begin
             state=stateRead_1;
           end
         end
