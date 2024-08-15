@@ -38,11 +38,23 @@ module memCtrl( input            clk,
                 inout  wire io_psram_data5,
                 inout  wire io_psram_data6,
                 inout  wire io_psram_data7,            
-                output o_psram_cs,
-                output o_psram_sclk,
-                output busy); // 1-busy
+                output wire o_psram_cs,
+                output wire o_psram_sclk,
+                output wire busy); // 1-busy
   
    
+  reg dataU7[3:0];
+  reg dataU9[3:0];
+
+  assign  io_psram_data0=dataU7[0];
+  assign  io_psram_data1=dataU7[1];
+  assign  io_psram_data2=dataU7[2];
+  assign  io_psram_data3=dataU7[3];
+  assign  io_psram_data4=dataU9[0];
+  assign  io_psram_data5=dataU9[1];
+  assign  io_psram_data6=dataU9[2];
+  assign  io_psram_data7=dataU9[3];         
+
   reg isBusy;
 
   reg [15:0] address;
@@ -56,8 +68,7 @@ module memCtrl( input            clk,
   wire CS;
 
   reg [5:0] state;
-  reg [5:0] nextState;
-
+  
   reg [7:0] qpiCmd;
 
   reg memCtrlCE;
@@ -66,15 +77,15 @@ module memCtrl( input            clk,
   reg psram_cs;
   assign o_psram_cs=psram_cs;
 
-  reg dataU7[3:0];
-  reg dataU9[3:0];
+  shortint shifter;
+  
   reg psram_sclk;
-
-  assign o_psram_sclk=clk;
+  assign o_psram_sclk=psram_sclk;
   
   always @(clk)
   begin
     if (delayCounter>0) delayCounter--;
+    if (state>stateEnableQPI) psram_sclk=clk;
   end
 
   always @(posedge clk or posedge reset)  // e.g. PHI0
@@ -123,13 +134,59 @@ module memCtrl( input            clk,
       end
 
       stateInit_1: begin
-        if (delayCounter<=0) begin
+        psram_sclk=LOW;
+        if (delayCounter==0) begin
+          psram_sclk=HIGH;
           state=stateInit_2;
         end
       end
 
-      stateInit_2: begin
-        state=stateIdle;
+      stateInit_2: begin // Enable QPI mode
+        psram_sclk=LOW;
+        shifter=0;
+        state=stateEnableQPI;
+      end
+
+      stateEnableQPI: begin // Enable QPI mode
+        case (shifter)
+          0: begin
+            psram_cs=LOW;
+            dataU7[0]=enableQPIMode[7];    
+            dataU7[1]='z;
+            dataU9[0]=enableQPIMode[7];
+            dataU9[1]='z;
+          end
+          1: begin
+            dataU7[0]=enableQPIMode[6];    
+            dataU9[0]=enableQPIMode[6];
+          end
+          2: begin
+            dataU7[0]=enableQPIMode[5];    
+            dataU9[0]=enableQPIMode[5];
+          end
+          3: begin
+            dataU7[0]=enableQPIMode[4];    
+            dataU9[0]=enableQPIMode[4];
+          end
+          4: begin
+            dataU7[0]=enableQPIMode[3];    
+            dataU9[0]=enableQPIMode[3];
+          end
+          5: begin
+            dataU7[0]=enableQPIMode[2];    
+            dataU9[0]=enableQPIMode[2];
+          end
+          6: begin
+            dataU7[0]=enableQPIMode[1];    
+            dataU9[0]=enableQPIMode[1];
+          end
+          7: begin
+            dataU7[0]=enableQPIMode[0];    
+            dataU9[0]=enableQPIMode[0];
+            psram_cs=HIGH;
+          end
+        endcase
+        shifter++;
       end
 
       stateIdle: begin
@@ -149,7 +206,7 @@ module memCtrl( input            clk,
       end
 
       default:
-        nextState=reset;
+        ;
     endcase
   end
 

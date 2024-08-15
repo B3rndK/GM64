@@ -40,7 +40,7 @@ memCtrl U13_U25(
   .o_psram_cs(o_psram_cs),
   .o_psram_sclk(o_psram_sclk)
   );
-
+  
 initial begin
   clkRAM = 1'b1;
   forever #1 clkRAM = ~clkRAM; 
@@ -61,8 +61,49 @@ initial begin
           $display ("Reset removed.");
           assert(U13_U25.state==stateInit_1);
 #15000    assert(U13_U25.state==stateInit_2);
-#1        assert(U13_U25.state==stateIdle);
-#1        assert(U13_U25.state==stateIdle);
+#2
+          assert(U13_U25.state==stateEnableQPI);
+#2          
+          assert(U13_U25.psram_cs==0); 
+          assert(io_psram_data0==enableQPIMode[7]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[7]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[6]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[6]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[5]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[5]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[4]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[4]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[3]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[3]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[2]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[2]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[1]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[1]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
+#2
+          assert(io_psram_data0==enableQPIMode[0]); // SI U7
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data4==enableQPIMode[0]); // SI U9
+          assert(io_psram_data5==='z); // SO U9
 
 $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           $finish(0);
