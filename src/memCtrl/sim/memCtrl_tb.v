@@ -16,11 +16,15 @@ module memCtrl_tb();
   reg busy;
   reg io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
       io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
-  
-  //reg o_psram_cs;
-  //reg o_psram_sclk;
+  reg [6:0] bank;
 
-memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .addrBus(addrBus), 
+memCtrl U13_U25(
+  .clk(clkRAM), 
+  .reset(reset), 
+  .CE(memCtrlCE), 
+  .write(writeToRam),
+  .bank(bank),
+  .addrBus(addrBus), 
   .numberOfBytesToWrite(numberOfBytesToWrite), 
   .dataToWrite(dataToWrite), 
   .dataRead(dataRead), 
@@ -50,8 +54,11 @@ initial begin
   // $dumpoff; $dumpon;
           $dumpfile("sim/memCtrl_tb.vcd");
           $dumpvars(0, memCtrl_tb);
-#1        $display("No reset until FPGA reports restart: time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
-#1000000  $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
+#1        $display("tb: Now resetting controller.");
+          reset=1;
+#2        reset=0;
+
+#10        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           $finish(0);
 end
 
