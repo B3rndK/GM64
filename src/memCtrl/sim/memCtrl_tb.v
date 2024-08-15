@@ -41,24 +41,30 @@ memCtrl U13_U25(
   .o_psram_sclk(o_psram_sclk)
   );
 
-
-
-
 initial begin
-  clkRAM = 1'b0;
+  clkRAM = 1'b1;
   forever #1 clkRAM = ~clkRAM; 
 end  
 
 initial begin
-  // $sdf_annotate("memCtrl_tb.sdf", U1);
-  // $dumpoff; $dumpon;
+          // $sdf_annotate("memCtrl_tb.sdf", U1);
+          // $dumpoff; $dumpon;
           $dumpfile("sim/memCtrl_tb.vcd");
           $dumpvars(0, memCtrl_tb);
-#1        $display("tb: Now resetting controller.");
+#1        $display("tb: Now resetting controller.");          
           reset=1;
-#2        reset=0;
+#2          
+          // $monitor(U13_U25.delayCounter);
+          assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
+#3
+#10       reset=0;
+          $display ("Reset removed.");
+          assert(U13_U25.state==stateInit_1);
+#15000    assert(U13_U25.state==stateInit_2);
+#1        assert(U13_U25.state==stateIdle);
+#1        assert(U13_U25.state==stateIdle);
 
-#10        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
+$display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           $finish(0);
 end
 
