@@ -10,13 +10,12 @@ module memCtrl_tb();
   reg memCtrlCE;
   reg writeToRam;
   reg [15:0] addrBus;
-  reg [3:0] numberOfBytesToWrite;
-  reg [15*7:0] dataToWrite;
+  reg [7:0] dataToWrite;
   reg [7:0] dataRead;
   reg busy;
   reg io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
       io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
-  reg [6:0] bank;
+  reg [3:0] bank;
 
 memCtrl U13_U25(
   .clk(clkRAM), 
@@ -25,7 +24,6 @@ memCtrl U13_U25(
   .write(writeToRam),
   .bank(bank),
   .addrBus(addrBus), 
-  .numberOfBytesToWrite(numberOfBytesToWrite), 
   .dataToWrite(dataToWrite), 
   .dataRead(dataRead), 
   .busy(busy),
@@ -104,6 +102,14 @@ initial begin
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data4==enableQPIMode[0]); // SI U9
           assert(io_psram_data5==='z); // SO U9
+
+#1        memCtrlCE=0;
+          assert(U13_U25.state==stateIdle);
+#10       assert(U13_U25.state==stateIdle);
+
+          // Try writing 16 bits bits...
+
+
 
 $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           $finish(0);
