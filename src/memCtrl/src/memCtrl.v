@@ -38,46 +38,64 @@ module memCtrl( input            clk,
                 inout  wire io_psram_data5,
                 inout  wire io_psram_data6,
                 inout  wire io_psram_data7,            
-                output o_psram_cs,
-                output o_psram_sclk,
-                output busy); // 1-busy
+                output wire o_psram_cs,
+                output wire o_psram_sclk,
+                output wire busy); // 1-busy
   
-  reg isBusy;
+   
+  reg dataU7[3:0];
+  reg dataU9[3:0];
 
+  assign  io_psram_data0=dataU7[0];
+  assign  io_psram_data1=dataU7[1];
+  assign  io_psram_data2=dataU7[2];
+  assign  io_psram_data3=dataU7[3];
+  assign  io_psram_data4=dataU9[0];
+  assign  io_psram_data5=dataU9[1];
+  assign  io_psram_data6=dataU9[2];
+  assign  io_psram_data7=dataU9[3];         
+
+  reg isBusy;
 
   reg [15:0] address;
   
   parameter LOW=1'b0;
   parameter HIGH=1'b1;
-
-  parameter enableQPICmd=8'h35;
-
-  reg SCLK;
+ 
+  parameter initDelayInClkCyles=15000; // 150us @100Mhz
+  shortint delayCounter;
+ 
   wire CS;
 
   reg [5:0] state;
-  reg [5:0] nextState;
-
+  
   reg [7:0] qpiCmd;
 
   reg memCtrlCE;
-
+  
   assign busy=isBusy;
-  assign o_psram_cs=memCtrlCE;
-  assign o_psram_sclk=SCLK;
-      
+  reg psram_cs;
+  assign o_psram_cs=psram_cs;
+
+  shortint shifter;
+  
+  reg psram_sclk;
+  assign o_psram_sclk=psram_sclk;
+  
+  always @(clk)
+  begin
+    if (delayCounter>0) delayCounter--;
+    if (state>stateEnableQPI) psram_sclk=clk;
+  end
+
   always @(posedge clk or posedge reset)  // e.g. PHI0
   begin
     if (reset) begin
-      $display("Reset detected.",$time, clk, reset);
-      nextState=stateReset;
+      state=stateReset;
+      delayCounter=initDelayInClkCyles;
     end
     else begin
-      if (nextState==stateReset)  state=stateInit_1;
-      else begin
-        state=nextState;
-        SCLK=~SCLK;
-      end
+      ;
     end
   end
 
@@ -86,56 +104,109 @@ module memCtrl( input            clk,
   always @(negedge clk or posedge reset) // e.g. VICII
   begin
     if (reset) begin
-      $display("VIC: negedge CLK reset",clk);
+      ;
     end
     else begin
-      $display("VIC: negedge CLK",clk);
+      ;
     end
   end
   
   always @(posedge clk) begin
     case (state)
       stateReset: begin
-        $display("state= stateReset, clk=%d",clk);
+        // Initialization, should be kept low for 150us (10ns per clock~ 150*1000/10 clks)
+        psram_cs=HIGH;
         isBusy=1;
-        SCLK=LOW;
-        memCtrlCE=HIGH;
+        
+        // U7
+        dataU7[0]=LOW;
+        dataU7[1]=LOW;
+        dataU7[2]=LOW;
+        dataU7[3]=LOW;
+        
+        // U9
+        dataU9[0]=LOW;
+        dataU9[1]=LOW;
+        dataU9[2]=LOW;
+        dataU9[3]=LOW;
+       
+        state=stateInit_1;
       end
 
       stateInit_1: begin
-        $display("state= stateInit_1, clk=%d",clk);
-        SCLK=HIGH;
-        nextState=stateInit_2;
+        psram_sclk=LOW;
+        if (delayCounter==0) begin
+          psram_sclk=HIGH;
+          state=stateInit_2;
+        end
       end
 
-      stateInit_2: begin
-        $display("state= stateInit_2, clk=%d",clk);
-        SCLK=LOW;
-        nextState=stateIdle;
+      stateInit_2: begin // Enable QPI mode
+        psram_sclk=LOW;
+        shifter=0;
+        state=stateEnableQPI;
+      end
+
+      stateEnableQPI: begin // Enable QPI mode
+        case (shifter)
+          0: begin
+            psram_cs=LOW;
+            dataU7[0]=enableQPIMode[7];    
+            dataU7[1]='z;
+            dataU9[0]=enableQPIMode[7];
+            dataU9[1]='z;
+          end
+          1: begin
+            dataU7[0]=enableQPIMode[6];    
+            dataU9[0]=enableQPIMode[6];
+          end
+          2: begin
+            dataU7[0]=enableQPIMode[5];    
+            dataU9[0]=enableQPIMode[5];
+          end
+          3: begin
+            dataU7[0]=enableQPIMode[4];    
+            dataU9[0]=enableQPIMode[4];
+          end
+          4: begin
+            dataU7[0]=enableQPIMode[3];    
+            dataU9[0]=enableQPIMode[3];
+          end
+          5: begin
+            dataU7[0]=enableQPIMode[2];    
+            dataU9[0]=enableQPIMode[2];
+          end
+          6: begin
+            dataU7[0]=enableQPIMode[1];    
+            dataU9[0]=enableQPIMode[1];
+          end
+          7: begin
+            dataU7[0]=enableQPIMode[0];    
+            dataU9[0]=enableQPIMode[0];
+            psram_cs=HIGH;
+          end
+        endcase
+        shifter++;
       end
 
       stateIdle: begin
-        $display("state= stateIdle, clk=%d",clk);
         isBusy=0;
-        SCLK=~SCLK;
         if (CE) begin
           isBusy=1;
           address=addrBus;
           if (!write) begin
-            nextState=stateRead_1;
+            state=stateRead_1;
           end
         end
       end
       
       stateRead_1: begin
-        $display("state= stateRead_1");
         qpiCmd=enableQPIMode;
         //io_psram_data0
       end
 
-
       default:
-        nextState=reset;
+        ;
     endcase
   end
 
