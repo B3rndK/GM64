@@ -25,6 +25,7 @@ module memCtrl( input            clk,
                 input            reset,
                 input            CE,    // 1-enable, 0-Z 
                 input            write, // 0-read, 1-write
+                input reg [6:0]  bank, // bank 0-63 forming a total of 4096KB
                 input reg [15:0] addrBus,
                 input reg [3:0]  numberOfBytesToWrite,
                 input reg [15*7:0] dataToWrite,
@@ -64,11 +65,11 @@ module memCtrl( input            clk,
   assign busy=isBusy;
   assign o_psram_cs=memCtrlCE;
   assign o_psram_sclk=SCLK;
-
-    
+      
   always @(posedge clk or posedge reset)  // e.g. PHI0
   begin
     if (reset) begin
+      $display("Reset detected.",$time, clk, reset);
       nextState=stateReset;
     end
     else begin
@@ -80,38 +81,41 @@ module memCtrl( input            clk,
     end
   end
 
-  /* We will allow concurrent access on odd/even cycles later on
+  /* We will allow concurrent access on odd/even cycles later on */
+
   always @(negedge clk or posedge reset) // e.g. VICII
   begin
     if (reset) begin
-      nextState=stateReset;
+      $display("VIC: negedge CLK reset",clk);
     end
     else begin
-      if (nextState==stateReset)  state=stateInit;
-      else state=nextState;
+      $display("VIC: negedge CLK",clk);
     end
   end
-  */
-
-  always @* begin
+  
+  always @(posedge clk) begin
     case (state)
       stateReset: begin
+        $display("state= stateReset, clk=%d",clk);
         isBusy=1;
         SCLK=LOW;
         memCtrlCE=HIGH;
       end
 
       stateInit_1: begin
+        $display("state= stateInit_1, clk=%d",clk);
         SCLK=HIGH;
         nextState=stateInit_2;
       end
 
       stateInit_2: begin
+        $display("state= stateInit_2, clk=%d",clk);
         SCLK=LOW;
         nextState=stateIdle;
       end
 
       stateIdle: begin
+        $display("state= stateIdle, clk=%d",clk);
         isBusy=0;
         SCLK=~SCLK;
         if (CE) begin
@@ -124,6 +128,7 @@ module memCtrl( input            clk,
       end
       
       stateRead_1: begin
+        $display("state= stateRead_1");
         qpiCmd=enableQPIMode;
         //io_psram_data0
       end

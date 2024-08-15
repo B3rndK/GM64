@@ -44,6 +44,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   //assign o_clkVideo=clkVideo;
   
   reg [15:0] addrBus; // out, address
+  reg [6:0] bank;
   wire [7:0] dataIn;  // write to memory
   wire [7:0] dataOut; // read from memory
   wire WE; // out, WriteEnable
@@ -72,7 +73,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
                .reset (!reset) // low active
               );
 
-  memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .addrBus(addrBus), 
+  memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .bank(bank), .addrBus(addrBus), 
     .numberOfBytesToWrite(numberOfBytesToWrite), 
     .dataToWrite(dataToWrite), 
     .dataRead(dataRead), 
