@@ -16,17 +16,28 @@ typedef enum {
   stateInit_2=2,
   stateEnableQPI=3,
   stateIdle=4,
-  stateWrite_1=5,
-  stateWrite_2=6,
-  stateWrite_3=7,
-  stateWrite_4=8,
-  stateWrite_5=9,
-  stateWrite_6=10,
-  stateRead_1=11,
-  stateRead_2=12,
-  stateRead_3=13,
-  stateRead_4=14,
-  stateRead_5=15
+  stateWrite_Cmd=5,
+  stateWrite_Addr_1=6,
+  stateWrite_Addr_2=7,
+  stateWrite_Addr_3=8,
+  stateWrite_Addr_4=9,
+  stateWrite_Addr_5=10,
+  stateWrite_Addr_6=11,
+
+  stateWrite_Data_1_1=12,
+  stateWrite_Data_1_2=13,
+  stateWrite_Data_2_1=14,
+  stateWrite_Data_2_2=15,
+  stateWrite_Data_3_1=16,
+  stateWrite_Data_3_2=17,
+  stateWrite_Data_4_1=18,
+  stateWrite_Data_4_2=19,
+
+  stateRead_1=20,
+  stateRead_2=21,
+  stateRead_3=22,
+  stateRead_4=23,
+  stateRead_5=24
 } StateMachine;
 
 typedef enum bit[7:0] {
@@ -70,7 +81,7 @@ module memCtrl( input            clk,
 
   reg isBusy;
 
-  reg [15:0] address;
+  reg [24:0] address;
   
   parameter LOW=1'b0;
   parameter HIGH=1'b1;
@@ -83,6 +94,8 @@ module memCtrl( input            clk,
   reg [5:0] state;
   
   reg [7:0] qpiCmd;
+
+  reg [7:0] byteToWrite;
 
   reg memCtrlCE;
   
@@ -207,12 +220,17 @@ module memCtrl( input            clk,
 
       stateIdle: begin
         isBusy=0;
-        
         if (CE) begin
           isBusy=1;
-          address=addrBus;
+          byteToWrite=dataToWrite;
+          address=addrBus<<4;   // byte mapping, obey your master ;-)
+          address[23]=bank[3];  
+          address[22]=bank[2];
+          address[21]=bank[1];
+          address[20]=bank[0];
+          
           if (write) begin
-            state=stateWrite_1;
+            state=stateWrite_Data_1_1;
           end
           else begin
             state=stateRead_1;
@@ -221,8 +239,7 @@ module memCtrl( input            clk,
       end
       
       stateRead_1: begin
-        qpiCmd=enableQPIMode;
-        //io_psram_data0
+        state=stateIdle; // not yet implemented
       end
 
       default:
@@ -230,6 +247,15 @@ module memCtrl( input            clk,
     endcase
   end
 
+  // SPI Quad Write
+  // We have 24-bit address in address, 8-bit to write in byteToWrite
+  always @(posedge clk) begin
+    case (state)
+      stateWrite_Data_1_1: begin
+        ;
+      end
+    endcase
+  end
 
 endmodule
 
