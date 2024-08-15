@@ -17,7 +17,7 @@ typedef enum {
   stateRead_1=5
 } StateMachine;
 
-typedef enum {
+typedef enum bit[7:0] {
   enableQPIMode=8'h35
 } QPICommands;
 
@@ -29,8 +29,6 @@ module memCtrl( input            clk,
                 input reg [3:0]  numberOfBytesToWrite,
                 input reg [15*7:0] dataToWrite,
                 output reg [7:0]   dataRead,
-                output o_psram_cs,
-                output o_psram_sclk,
                 inout  wire io_psram_data0,
                 inout  wire io_psram_data1,
                 inout  wire io_psram_data2,
@@ -53,13 +51,15 @@ module memCtrl( input            clk,
 
   parameter enableQPICmd=8'h35;
 
-  wire SCLK;
+  reg SCLK;
   wire CS;
 
   reg [5:0] state;
   reg [5:0] nextState;
 
   reg [7:0] qpiCmd;
+
+  reg memCtrlCE;
 
   assign busy=isBusy;
   assign o_psram_cs=memCtrlCE;
@@ -72,7 +72,7 @@ module memCtrl( input            clk,
       nextState=stateReset;
     end
     else begin
-      if (nextState==stateReset)  state=stateInit;
+      if (nextState==stateReset)  state=stateInit_1;
       else begin
         state=nextState;
         SCLK=~SCLK;
@@ -96,12 +96,12 @@ module memCtrl( input            clk,
   always @* begin
     case (state)
       stateReset: begin
-        isBusy=true;
+        isBusy=1;
         SCLK=LOW;
         memCtrlCE=HIGH;
       end
 
-      stateInit: begin
+      stateInit_1: begin
         SCLK=HIGH;
         nextState=stateInit_2;
       end
@@ -112,10 +112,10 @@ module memCtrl( input            clk,
       end
 
       stateIdle: begin
-        isBusy=false;
+        isBusy=0;
         SCLK=~SCLK;
         if (CE) begin
-          isBusy=true;
+          isBusy=1;
           address=addrBus;
           if (!write) begin
             nextState=stateRead_1;
