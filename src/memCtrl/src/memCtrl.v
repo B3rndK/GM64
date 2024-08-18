@@ -279,24 +279,20 @@ module memCtrl( input            clk,
           address[21]=bank[2];
           address[20]=bank[1];
           address[19]=bank[0];  
+          dataU7[1]='z;
+          dataU7[2]='z;
+          dataU7[3]='z;
 
           if (write) begin
             state=stateWrite_SendWriteCmd_1;
             dataU7[0]=SPIQuadWrite[7];
-            dataU7[1]='z;
-            dataU7[2]='z;
-            dataU7[3]='z;
-            psram_cs=LOW;
             //byteToSendCounter=4;
           end
           else begin
             state=stateRead_SendReadCmd_1;
             dataU7[0]=SPIQuadRead[7];
-            dataU7[1]='z;
-            dataU7[2]='z;
-            dataU7[3]='z;
-            psram_cs=LOW;
           end
+          psram_cs=LOW;
         end
         else isBusy=0;
       end
