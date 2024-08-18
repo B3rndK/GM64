@@ -24,20 +24,51 @@ typedef enum {
   stateWrite_Addr_5=10,
   stateWrite_Addr_6=11,
 
-  stateWrite_Data_1_1=12,
-  stateWrite_Data_1_2=13,
-  stateWrite_Data_2_1=14,
-  stateWrite_Data_2_2=15,
-  stateWrite_Data_3_1=16,
-  stateWrite_Data_3_2=17,
-  stateWrite_Data_4_1=18,
-  stateWrite_Data_4_2=19,
+  stateWrite_SendWriteCmd_1=12,
+  stateWrite_SendWriteCmd_2=13,
+  stateWrite_SendWriteCmd_3=14,
+  stateWrite_SendWriteCmd_4=15,
+  stateWrite_SendWriteCmd_5=16,
+  stateWrite_SendWriteCmd_6=17,
+  stateWrite_SendWriteCmd_7=18,
 
-  stateRead_1=20,
-  stateRead_2=21,
-  stateRead_3=22,
-  stateRead_4=23,
-  stateRead_5=24
+  stateWrite_SendAddr23_20=19,
+  stateWrite_SendAddr19_16=20,
+  stateWrite_SendAddr15_12=21,
+  stateWrite_SendAddr11_8=22,
+  stateWrite_SendAddr7_4=23,
+  stateWrite_SendAddr3_0=24,
+
+  stateWrite_SendData7_4=25,
+  stateWrite_SendData3_0=26,
+
+  stateRead_SendReadCmd_1=100,
+  stateRead_SendReadCmd_2=101,
+  stateRead_SendReadCmd_3=102,
+  stateRead_SendReadCmd_4=103,
+  stateRead_SendReadCmd_5=104,
+  stateRead_SendReadCmd_6=105,
+  stateRead_SendReadCmd_7=106,
+
+  stateRead_SendAddr23_20=107,
+  stateRead_SendAddr19_16=108,
+  stateRead_SendAddr15_12=109,
+  stateRead_SendAddr11_8=110,
+  stateRead_SendAddr7_4=111,
+  stateRead_SendAddr3_0=112,
+
+  stateRead_WaitCycle_1=113,
+  stateRead_WaitCycle_2=114,
+  stateRead_WaitCycle_3=115,
+  stateRead_WaitCycle_4=116,
+  stateRead_WaitCycle_5=117,
+  stateRead_WaitCycle_6=118,
+  stateRead_WaitCycle_7=119,
+
+  stateRead7_4=120,
+  stateRead3_0=121
+
+ 
 } StateMachine;
 
 typedef enum bit[7:0] {
@@ -50,10 +81,10 @@ module memCtrl( input            clk,
                 input            reset,
                 input            CE,    // 1-enable, 0-Z 
                 input            write, // 0-read, 1-write
-                input reg [3:0]  bank, // bank 0-15 forming a total of 16*64KB(of 256KB)=4096KB 
+                input reg [5:0]  bank,  // bank 0-31, each of 64KB = 2097152 bytes
                 input reg [15:0] addrBus,
                 input reg [7:0] dataToWrite,
-                output reg [7:0]   dataRead,
+                output reg [7:0] dataRead,
                 inout  wire io_psram_data0,
                 inout  wire io_psram_data1,
                 inout  wire io_psram_data2,
@@ -79,10 +110,24 @@ module memCtrl( input            clk,
   assign  io_psram_data6=dataU9[2];
   assign  io_psram_data7=dataU9[3];         
 
+  assign  dataRead[0]=dataReady==1 ? byteToRead[0] : 'z;
+  assign  dataRead[1]=dataReady==1 ? byteToRead[1] : 'z; 
+  assign  dataRead[2]=dataReady==1 ? byteToRead[2] : 'z; 
+  assign  dataRead[3]=dataReady==1 ? byteToRead[3] : 'z; 
+  assign  dataRead[4]=dataReady==1 ? byteToRead[4] : 'z; 
+  assign  dataRead[5]=dataReady==1 ? byteToRead[5] : 'z; 
+  assign  dataRead[6]=dataReady==1 ? byteToRead[6] : 'z; 
+  assign  dataRead[7]=dataReady==1 ? byteToRead[7] : 'z; 
+
+  reg dataReady;
+
   reg isBusy;
 
   reg [24:0] address;
   
+  // Loops through 3-0 to reuse write state, writing 4x same byte
+  reg [3:0] byteToSendCounter;
+
   parameter LOW=1'b0;
   parameter HIGH=1'b1;
  
@@ -96,7 +141,8 @@ module memCtrl( input            clk,
   reg [7:0] qpiCmd;
 
   reg [7:0] byteToWrite;
-
+  reg [7:0] byteToRead;
+  
   reg memCtrlCE;
   
   assign busy=isBusy;
@@ -179,8 +225,12 @@ module memCtrl( input            clk,
             psram_cs=LOW;
             dataU7[0]=enableQPIMode[7];    
             dataU7[1]='z;
+            dataU7[2]='z;
+            dataU7[3]='z;
             dataU9[0]=enableQPIMode[7];
             dataU9[1]='z;
+            dataU9[2]='z;
+            dataU9[3]='z;
           end
           1: begin
             dataU7[0]=enableQPIMode[6];    
@@ -219,43 +269,243 @@ module memCtrl( input            clk,
       end
 
       stateIdle: begin
-        isBusy=0;
         if (CE) begin
+          dataReady=0;
           isBusy=1;
           byteToWrite=dataToWrite;
-          address=addrBus<<4;   // byte mapping, obey your master ;-)
-          address[23]=bank[3];  
-          address[22]=bank[2];
-          address[21]=bank[1];
-          address[20]=bank[0];
-          
+          address=addrBus<<3;  
+          address[23]=bank[4];  
+          address[22]=bank[3];
+          address[21]=bank[2];
+          address[20]=bank[1];
+          address[19]=bank[0];  
+
           if (write) begin
-            state=stateWrite_Data_1_1;
+            state=stateWrite_SendWriteCmd_1;
+            dataU7[0]=SPIQuadWrite[7];
+            dataU7[1]='z;
+            dataU7[2]='z;
+            dataU7[3]='z;
+            psram_cs=LOW;
+            //byteToSendCounter=4;
           end
           else begin
-            state=stateRead_1;
+            state=stateRead_SendReadCmd_1;
+            dataU7[0]=SPIQuadRead[7];
+            dataU7[1]='z;
+            dataU7[2]='z;
+            dataU7[3]='z;
+            psram_cs=LOW;
           end
         end
+        else isBusy=0;
       end
       
-      stateRead_1: begin
-        state=stateIdle; // not yet implemented
-      end
-
       default:
         ;
     endcase
   end
 
+
+  // SPI Quad Read...
+  always @(posedge clk) begin
+    if (state>=stateRead_SendReadCmd_1 && state<=stateRead_SendReadCmd_7) begin
+      case (state)
+        stateRead_SendReadCmd_1: dataU7[0]=SPIQuadRead[6];
+        stateRead_SendReadCmd_2: dataU7[0]=SPIQuadRead[5];
+        stateRead_SendReadCmd_3: dataU7[0]=SPIQuadRead[4];
+        stateRead_SendReadCmd_4: dataU7[0]=SPIQuadRead[3];
+        stateRead_SendReadCmd_5: dataU7[0]=SPIQuadRead[2];
+        stateRead_SendReadCmd_6: dataU7[0]=SPIQuadRead[1];
+        stateRead_SendReadCmd_7: dataU7[0]=SPIQuadRead[0];
+      endcase
+      state++;
+    end
+  end
+
+// Fall through, send 24-bit address quad packed.
+  always @(posedge clk) begin
+    if (state>=stateRead_SendAddr23_20 && state<=stateRead_SendAddr3_0) begin
+      case (state)
+        stateRead_SendAddr23_20: begin
+          dataU7[0]=address[20];
+          dataU7[1]=address[21];
+          dataU7[2]=address[22];
+          dataU7[3]=address[23];
+        end
+
+        stateRead_SendAddr19_16: begin
+          dataU7[0]=address[16];
+          dataU7[1]=address[17];
+          dataU7[2]=address[18];
+          dataU7[3]=address[19];
+        end
+
+        stateRead_SendAddr15_12: begin
+          dataU7[0]=address[12];
+          dataU7[1]=address[13];
+          dataU7[2]=address[14];
+          dataU7[3]=address[15];
+        end
+
+        stateRead_SendAddr11_8: begin
+          dataU7[0]=address[8];
+          dataU7[1]=address[9];
+          dataU7[2]=address[10];
+          dataU7[3]=address[11];
+        end
+
+        stateRead_SendAddr7_4: begin
+          dataU7[0]=address[4];
+          dataU7[1]=address[5];
+          dataU7[2]=address[6];
+          dataU7[3]=address[7];
+        end
+
+        stateRead_SendAddr3_0: begin
+          dataU7[0]=address[0];
+          dataU7[1]=address[1];
+          dataU7[2]=address[2];
+          dataU7[3]=address[3];
+        end
+      endcase
+      state++;
+    end
+  end
+
+  // WaitCycle by state
+  always @(posedge clk) begin
+    if (state>=stateRead_WaitCycle_1 && state<=stateRead_WaitCycle_7) begin
+      state++;
+    end
+  end
+
+
+  // Fall through, send 8-bit data quad packed.
+  always @(posedge clk) begin
+    if (state>=stateRead7_4 && state<=stateRead3_0) begin
+      case (state)
+        stateRead7_4: begin
+          byteToRead[4]=dataU7[0];
+          byteToRead[5]=dataU7[1];
+          byteToRead[6]=dataU7[2];
+          byteToRead[7]=dataU7[3];
+        end
+
+        stateRead3_0: begin
+          byteToRead[0]=dataU7[0];
+          byteToRead[1]=dataU7[1];
+          byteToRead[2]=dataU7[2];
+          byteToRead[3]=dataU7[3];
+          /* if (byteToSendCounter>1) state-=2;
+          else psram_cs=HIGH;*/
+          psram_cs=HIGH;
+          state=stateIdle;
+          isBusy=0;
+          dataReady=1;
+        end
+      endcase
+      //byteToSendCounter--;
+      if (state!=stateIdle) state++;
+    end
+  end
+
   // SPI Quad Write
   // We have 24-bit address in address, 8-bit to write in byteToWrite
   always @(posedge clk) begin
-    case (state)
-      stateWrite_Data_1_1: begin
-        ;
-      end
-    endcase
+    if (state>=stateWrite_SendWriteCmd_1 && state<=stateWrite_SendWriteCmd_7) begin
+      case (state)
+        stateWrite_SendWriteCmd_1: dataU7[0]=SPIQuadWrite[6];
+        stateWrite_SendWriteCmd_2: dataU7[0]=SPIQuadWrite[5];
+        stateWrite_SendWriteCmd_3: dataU7[0]=SPIQuadWrite[4];
+        stateWrite_SendWriteCmd_4: dataU7[0]=SPIQuadWrite[3];
+        stateWrite_SendWriteCmd_5: dataU7[0]=SPIQuadWrite[2];
+        stateWrite_SendWriteCmd_6: dataU7[0]=SPIQuadWrite[1];
+        stateWrite_SendWriteCmd_7: dataU7[0]=SPIQuadWrite[0];
+      endcase
+      state++;
+    end
   end
+
+  // Fall through, send 24-bit address quad packed.
+  always @(posedge clk) begin
+    if (state>=stateWrite_SendAddr23_20 && state<=stateWrite_SendAddr3_0) begin
+      case (state)
+        stateWrite_SendAddr23_20: begin
+          dataU7[0]=address[20];
+          dataU7[1]=address[21];
+          dataU7[2]=address[22];
+          dataU7[3]=address[23];
+        end
+
+        stateWrite_SendAddr19_16: begin
+          dataU7[0]=address[16];
+          dataU7[1]=address[17];
+          dataU7[2]=address[18];
+          dataU7[3]=address[19];
+        end
+
+        stateWrite_SendAddr15_12: begin
+          dataU7[0]=address[12];
+          dataU7[1]=address[13];
+          dataU7[2]=address[14];
+          dataU7[3]=address[15];
+        end
+
+        stateWrite_SendAddr11_8: begin
+          dataU7[0]=address[8];
+          dataU7[1]=address[9];
+          dataU7[2]=address[10];
+          dataU7[3]=address[11];
+        end
+
+        stateWrite_SendAddr7_4: begin
+          dataU7[0]=address[4];
+          dataU7[1]=address[5];
+          dataU7[2]=address[6];
+          dataU7[3]=address[7];
+        end
+
+        stateWrite_SendAddr3_0: begin
+          dataU7[0]=address[0];
+          dataU7[1]=address[1];
+          dataU7[2]=address[2];
+          dataU7[3]=address[3];
+        end
+      endcase
+      state++;
+    end
+  end
+
+  // Fall through, send 8-bit data quad packed.
+  always @(posedge clk) begin
+    if (state>=stateWrite_SendData7_4 && state<=stateWrite_SendData3_0) begin
+      case (state)
+        stateWrite_SendData7_4: begin
+          dataU7[0]=byteToWrite[4];
+          dataU7[1]=byteToWrite[5];
+          dataU7[2]=byteToWrite[6];
+          dataU7[3]=byteToWrite[7];
+        end
+
+        stateWrite_SendData3_0: begin
+          dataU7[0]=byteToWrite[0];
+          dataU7[1]=byteToWrite[1];
+          dataU7[2]=byteToWrite[2];
+          dataU7[3]=byteToWrite[3];
+          /* if (byteToSendCounter>1) state-=2;
+          else psram_cs=HIGH;*/
+          psram_cs=HIGH;
+          state=stateIdle;
+          isBusy=0;
+        end
+      endcase
+      //byteToSendCounter--;
+      if (state!=stateIdle) state++;
+      
+    end
+  end
+
 
 endmodule
 

@@ -15,7 +15,7 @@ module memCtrl_tb();
   reg busy;
   reg io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
       io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
-  reg [3:0] bank;
+  reg [5:0] bank;
 
 memCtrl U13_U25(
   .clk(clkRAM), 
@@ -107,7 +107,8 @@ initial begin
           assert(U13_U25.state==stateIdle);
 #10       assert(U13_U25.state==stateIdle);
 
-          // Try writing 16 bits bits...
+          // Try writing 
+          
 
 
 
