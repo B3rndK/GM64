@@ -12,6 +12,17 @@
 `include "../MOS6502/src/cpu.v"
 `include "../memCtrl/src/memCtrl.v"
 
+typedef enum bit[3:0] {
+  black=0,
+  red=1,
+  green=2,
+  yellow=3,
+  navy=4,
+  blue=5,
+  gray=6
+} Color;
+
+
 module gm64(input clk0, // 10Mhz coming from FPGA
             input reset, 
             input fpga_but1, 
@@ -36,9 +47,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output o_clkVideo
             );
 
- 
-  wire clkVideo, clkRAM, clkDot, clkPhi0;
-
+  wire busy;
+  wire clkVideo, clkRAM, clkDot;
+  reg clkPhi0;
   //assign o_clkRAM=clkRAM;
   assign o_clkDot=clkDot;
   //assign o_clkVideo=clkVideo;
@@ -53,12 +64,12 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   wire rdy=1;
   wire nmi=0;
   wire writeToRam;
-  wire [3:0] numberOfBytesToWrite;
   wire [15*7:0] dataToWrite;
   wire [7:0] dataRead;
   wire [3:0] debugValue;
   reg [3:0] debug;
-  assign debugValue=debug;
+  reg [24:0] looper;
+  wire [3:0] deb;
 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
@@ -74,7 +85,6 @@ module gm64(input clk0, // 10Mhz coming from FPGA
               );
 
   memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .bank(bank), .addrBus(addrBus), 
-    .numberOfBytesToWrite(numberOfBytesToWrite), 
     .dataToWrite(dataToWrite), 
     .dataRead(dataRead), 
     .busy(busy),
@@ -100,19 +110,131 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_red(o_red),
     .o_green(o_green),
     .o_blue(o_blue),
-    .debugValue(debugValue) // testing only
+    .debugValue(debug) // testing only
   );
   
   cpu U7(.clk(clk0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
 
   
-  always @(posedge clkRAM  or negedge reset)
-  begin
-    if (!reset) debug=1;
-    else begin
+  //assign deb=debug;
 
+  always @(posedge clkPhi0  or negedge reset)
+  begin
+    if (!reset) begin
+      looper=0;
+      memCtrlCE=0;
+      debug=black;
+      stop=0;
+    end
+    else begin
+      if (stop==1) begin
+      end
+      else if (stop==0) begin
+        if (looper<=2000000) begin
+          debug=green;
+        end
+        else if (looper>2000000 && looper<=3000000) begin
+          debug=yellow;
+        end
+        else if (looper>3000000 && looper<=4000000) begin
+          debug=black;
+        end
+        else if (looper>4000000 && looper<=5000000) begin
+          if (looper==4000001) begin
+            addrbus=49152;
+            bank=0;
+            dataToWrite=0;
+            writeToRam=1;
+            memCtrlCE=1;
+          end
+          if (looper==4000002) begin
+            addrbus=49152;
+            bank=0;
+            dataToWrite=0;
+            writeToRam=0;
+            memCtrlCE=1;
+          end
+          if (looper==4000003) begin
+            if (busy===1) begin
+              debug=green;
+              stop=1;
+            end
+            else if (busy==='x) begin
+              debug=blue;
+              stop=1;
+            end
+            else if (busy==='z) begin
+              debug=navy;
+              stop=1;
+            end
+          end
+        end
+        if (looper>5000000) begin
+          looper=0;
+        end
+        looper++;
+      end
+    end
+      /*
+      case (looper)
+      4: begin
+        looper++;
+        debug=3;
+        addrbus=49152;
+        bank=0;
+        dataToWrite=0;
+        writeToRam=1;
+        memCtrlCE=1;
+      end
+      5: begin
+        debug=5;
+        addrbus=49152;
+        bank=0;
+        dataToWrite=0;
+        writeToRam=0;
+        memCtrlCE=1;
+        looper++;
+      end
+      6: begin 
+        if (busy==0) begin
+            debug=2; 
+          if (dataRead==0) begin
+            debug=2; 
+            looper++;
+          end
+          else if (dataRead!=0) begin
+            debug=1; 
+            looper++;
+          end
+        end
+      end
+      7: begin
+        looper=7;
+      end
+
+      default:
+        debug=4;
+
+      endcase */
+    end  
+
+endmodule  
+
+/*
+      else if (looper==39002) begin
+          if (dataRead==0) begin
+            debug=6; // green
+          end
+          else begin
+            debug=8; // red
+          end
+      end
+      if (looper>39002) begin
+        looper=39002;
+        debug=6;
+      end
       /* This is a little 6502 test which will execute a program at $c000 after reset 
-         and "store" a value in $d020 */ 
+         and "store" a value in $d020 
 
       if (addrBus==16'hfffc) dataIn=8'h00;
       if (addrBus==16'hfffd) dataIn=8'hc0;
@@ -125,10 +247,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       if (addrBus==16'hc003) dataIn=8'h4c; // JMP $c000
       if (addrBus==16'hc004) dataIn=8'h00; 
       if (addrBus==16'hc005) dataIn=8'hc0; 
-      if (addrBus==16'hd020 && WE) debug=2; // sta $d020 executed, show colour as positive response
-    end
-  end
+      if (addrBus==16'hd020 && WE) debug=2; // sta $d020 executed, show colour as positive response 
+      */
 
-endmodule  
+
 
 `endif

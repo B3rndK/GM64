@@ -42,31 +42,31 @@ typedef enum {
   stateWrite_SendData7_4=25,
   stateWrite_SendData3_0=26,
 
-  stateRead_SendReadCmd_1=100,
-  stateRead_SendReadCmd_2=101,
-  stateRead_SendReadCmd_3=102,
-  stateRead_SendReadCmd_4=103,
-  stateRead_SendReadCmd_5=104,
-  stateRead_SendReadCmd_6=105,
-  stateRead_SendReadCmd_7=106,
+  stateRead_SendReadCmd_1=27,
+  stateRead_SendReadCmd_2=28,
+  stateRead_SendReadCmd_3=29,
+  stateRead_SendReadCmd_4=30,
+  stateRead_SendReadCmd_5=31,
+  stateRead_SendReadCmd_6=32,
+  stateRead_SendReadCmd_7=33,
 
-  stateRead_SendAddr23_20=107,
-  stateRead_SendAddr19_16=108,
-  stateRead_SendAddr15_12=109,
-  stateRead_SendAddr11_8=110,
-  stateRead_SendAddr7_4=111,
-  stateRead_SendAddr3_0=112,
+  stateRead_SendAddr23_20=34,
+  stateRead_SendAddr19_16=35,
+  stateRead_SendAddr15_12=36,
+  stateRead_SendAddr11_8=37,
+  stateRead_SendAddr7_4=38,
+  stateRead_SendAddr3_0=39,
 
-  stateRead_WaitCycle_1=113,
-  stateRead_WaitCycle_2=114,
-  stateRead_WaitCycle_3=115,
-  stateRead_WaitCycle_4=116,
-  stateRead_WaitCycle_5=117,
-  stateRead_WaitCycle_6=118,
-  stateRead_WaitCycle_7=119,
+  stateRead_WaitCycle_1=40,
+  stateRead_WaitCycle_2=41,
+  stateRead_WaitCycle_3=42,
+  stateRead_WaitCycle_4=43,
+  stateRead_WaitCycle_5=44,
+  stateRead_WaitCycle_6=45,
+  stateRead_WaitCycle_7=46,
 
-  stateRead7_4=120,
-  stateRead3_0=121
+  stateRead7_4=47,
+  stateRead3_0=48
 
  
 } StateMachine;
@@ -79,7 +79,7 @@ typedef enum bit[7:0] {
 
 module memCtrl( input            clk,
                 input            reset,
-                input            CE,    // 1-enable, 0-Z 
+                inout reg        CE,    // 1-enable
                 input            write, // 0-read, 1-write
                 input reg [5:0]  bank,  // bank 0-31, each of 64KB = 2097152 bytes
                 input reg [15:0] addrBus,
@@ -121,8 +121,6 @@ module memCtrl( input            clk,
 
   reg dataReady;
 
-  reg isBusy;
-
   reg [24:0] address;
   
   // Loops through 3-0 to reuse write state, writing 4x same byte
@@ -145,6 +143,8 @@ module memCtrl( input            clk,
   
   reg memCtrlCE;
   
+  assign CE=memCtrlCE;
+  reg isBusy;
   assign busy=isBusy;
   reg psram_cs;
   assign o_psram_cs=psram_cs;
@@ -270,6 +270,7 @@ module memCtrl( input            clk,
 
       stateIdle: begin
         if (CE) begin
+          memCtrlCE=0;
           dataReady=0;
           isBusy=1;
           byteToWrite=dataToWrite;
@@ -482,6 +483,7 @@ module memCtrl( input            clk,
           dataU7[1]=byteToWrite[5];
           dataU7[2]=byteToWrite[6];
           dataU7[3]=byteToWrite[7];
+          state++;
         end
 
         stateWrite_SendData3_0: begin
@@ -493,12 +495,11 @@ module memCtrl( input            clk,
           else psram_cs=HIGH;*/
           psram_cs=HIGH;
           state=stateIdle;
+          memCtrlCE=0;
           isBusy=0;
         end
       endcase
       //byteToSendCounter--;
-      if (state!=stateIdle) state++;
-      
     end
   end
 
