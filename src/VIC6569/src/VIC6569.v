@@ -9,9 +9,9 @@
 */
 
 module VIC6569(input clk,
-               input clkDot, 
+               inout clkDot, 
                input reset, 
-               output clkPhi0,
+               inout wire clkPhi0,
                output o_hsync, 
                output o_vsync, 
                output [3:0] o_red, 
@@ -29,7 +29,7 @@ module VIC6569(input clk,
   wire [9:0] o_vpos;
 
   // Creating Phi0 clock for CPU by dividing clkDot by 
-  reg [4:0] cntPhi0;
+  reg [5:0] cntPhi0;
   assign clkPhi0=cntPhi0>7;
 
   syncGen sync_gen(
