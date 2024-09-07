@@ -83,21 +83,22 @@ module memCtrl( input            clk,
                 input            write, // 0-read, 1-write
                 input reg [5:0]  bank,  // bank 0-31, each of 64KB = 2097152 bytes
                 input reg [15:0] addrBus,
-                input reg [7:0] dataToWrite,
+                input  reg [7:0] dataToWrite,
                 output reg [7:0] dataRead,
-                inout  wire io_psram_data0,
-                inout  wire io_psram_data1,
-                inout  wire io_psram_data2,
-                inout  wire io_psram_data3,
-                inout  wire io_psram_data4,
-                inout  wire io_psram_data5,
-                inout  wire io_psram_data6,
-                inout  wire io_psram_data7,            
-                output wire o_psram_cs,
-                output wire o_psram_sclk,
-                output wire busy); // 1-busy
+                inout  reg io_psram_data0,
+                inout reg  io_psram_data1,
+                inout  reg io_psram_data2,
+                inout  reg io_psram_data3,
+                inout  reg io_psram_data4,
+                inout  reg io_psram_data5,
+                inout  reg io_psram_data6,
+                inout  reg io_psram_data7,            
+                output reg o_psram_cs,
+                output reg o_psram_sclk,
+                output reg isBusy, // 1-busy
+                output reg o_dataReady,
+                output reg [7:0] debug); 
   
-   
   reg dataU7[3:0];
   reg dataU9[3:0];
 
@@ -110,17 +111,15 @@ module memCtrl( input            clk,
   assign  io_psram_data6=dataU9[2];
   assign  io_psram_data7=dataU9[3];         
 
-  assign  dataRead[0]=dataReady==1 ? byteToRead[0] : 'z;
-  assign  dataRead[1]=dataReady==1 ? byteToRead[1] : 'z; 
-  assign  dataRead[2]=dataReady==1 ? byteToRead[2] : 'z; 
-  assign  dataRead[3]=dataReady==1 ? byteToRead[3] : 'z; 
-  assign  dataRead[4]=dataReady==1 ? byteToRead[4] : 'z; 
-  assign  dataRead[5]=dataReady==1 ? byteToRead[5] : 'z; 
-  assign  dataRead[6]=dataReady==1 ? byteToRead[6] : 'z; 
-  assign  dataRead[7]=dataReady==1 ? byteToRead[7] : 'z; 
-
-  reg dataReady;
-
+  assign  dataRead[0]=o_dataReady==1 ? byteToRead[0] : 'z;
+  assign  dataRead[1]=o_dataReady==1 ? byteToRead[1] : 'z; 
+  assign  dataRead[2]=o_dataReady==1 ? byteToRead[2] : 'z; 
+  assign  dataRead[3]=o_dataReady==1 ? byteToRead[3] : 'z; 
+  assign  dataRead[4]=o_dataReady==1 ? byteToRead[4] : 'z; 
+  assign  dataRead[5]=o_dataReady==1 ? byteToRead[5] : 'z; 
+  assign  dataRead[6]=o_dataReady==1 ? byteToRead[6] : 'z; 
+  assign  dataRead[7]=o_dataReady==1 ? byteToRead[7] : 'z; 
+  
   reg [24:0] address;
   
   // Loops through 3-0 to reuse write state, writing 4x same byte
@@ -144,77 +143,56 @@ module memCtrl( input            clk,
   reg memCtrlCE;
   
   assign CE=memCtrlCE;
-  reg isBusy;
-  assign busy=isBusy;
+//  reg isBusy;
+//  assign busy=isBusy;
   reg psram_cs;
   assign o_psram_cs=psram_cs;
 
   shortint shifter;
-  
-  reg psram_sclk;
-  assign o_psram_sclk=psram_sclk;
-  
+     
   always @(clk)
   begin
     if (delayCounter>0) delayCounter--;
-    if (state>stateEnableQPI) psram_sclk=clk;
+    //o_psram_sclk=(clk==1 ? 1:0);
   end
 
-  always @(posedge clk or posedge reset)  // e.g. PHI0
+  always @(posedge clk or posedge reset) 
   begin
     if (reset) begin
       state=stateReset;
+      o_dataReady=0;
       delayCounter=initDelayInClkCyles;
+      psram_cs=HIGH;
+      isBusy=1;
+      
+      // U7
+      dataU7[0]=LOW;
+      dataU7[1]=LOW;
+      dataU7[2]=LOW;
+      dataU7[3]=LOW;
+      
+      // U9
+      dataU9[0]=LOW;
+      dataU9[1]=LOW;
+      dataU9[2]=LOW;
+      dataU9[3]=LOW;
     end
     else begin
-      ;
-    end
-  end
-
-  /* We will allow concurrent access on odd/even cycles later on */
-
-  always @(negedge clk or posedge reset) // e.g. VICII
-  begin
-    if (reset) begin
-      ;
-    end
-    else begin
-      ;
-    end
-  end
-  
-  always @(posedge clk) begin
-    case (state)
-      stateReset: begin
-        // Initialization, should be kept low for 150us (10ns per clock~ 150*1000/10 clks)
-        psram_cs=HIGH;
-        isBusy=1;
-        
-        // U7
-        dataU7[0]=LOW;
-        dataU7[1]=LOW;
-        dataU7[2]=LOW;
-        dataU7[3]=LOW;
-        
-        // U9
-        dataU9[0]=LOW;
-        dataU9[1]=LOW;
-        dataU9[2]=LOW;
-        dataU9[3]=LOW;
-       
+      if (state==stateReset) begin
         state=stateInit_1;
       end
-
+    end
+  end
+ 
+  always @(posedge clk) begin
+    case (state)
       stateInit_1: begin
-        psram_sclk=LOW;
         if (delayCounter==0) begin
-          psram_sclk=HIGH;
           state=stateInit_2;
         end
       end
 
       stateInit_2: begin // Enable QPI mode
-        psram_sclk=LOW;
         shifter=0;
         state=stateEnableQPI;
       end
@@ -271,7 +249,7 @@ module memCtrl( input            clk,
       stateIdle: begin
         if (CE) begin
           memCtrlCE=0;
-          dataReady=0;
+          o_dataReady=0;
           isBusy=1;
           byteToWrite=dataToWrite;
           address=addrBus<<3;  
@@ -399,7 +377,7 @@ module memCtrl( input            clk,
           psram_cs=HIGH;
           state=stateIdle;
           isBusy=0;
-          dataReady=1;
+          o_dataReady=1;
         end
       endcase
       //byteToSendCounter--;
@@ -496,6 +474,7 @@ module memCtrl( input            clk,
           psram_cs=HIGH;
           state=stateIdle;
           memCtrlCE=0;
+          debug=3;
           isBusy=0;
         end
       endcase

@@ -13,6 +13,7 @@ module memCtrl_tb();
   reg [7:0] dataToWrite;
   reg [7:0] dataRead;
   reg busy;
+  reg [7:0] debug;
   reg io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
       io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
   reg [5:0] bank;
@@ -36,7 +37,8 @@ memCtrl U13_U25(
   .io_psram_data6(io_psram_data6),
   .io_psram_data7(io_psram_data7),
   .o_psram_cs(o_psram_cs),
-  .o_psram_sclk(o_psram_sclk)
+  .o_psram_sclk(o_psram_sclk),
+  .debug(debug)
   );
   
 initial begin
@@ -53,6 +55,7 @@ initial begin
           reset=1;
 #2          
           // $monitor(U13_U25.delayCounter);
+          assert(U13_U25.busy==1);
           assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
 #3
 #10       reset=0;
@@ -139,6 +142,7 @@ initial begin
 #2        assert(U13_U25.state==stateWrite_SendAddr7_4);
 #2        assert(U13_U25.state==stateWrite_SendAddr3_0);
 #2        assert(U13_U25.state==stateWrite_SendData7_4);
+          assert(busy==1);
 #2        assert(U13_U25.state==stateWrite_SendData3_0);
 #2        assert(o_psram_cs==1);
           assert(U13_U25.state==stateIdle);
@@ -152,6 +156,7 @@ initial begin
           U13_U25.memCtrlCE=1;
       
 #2        assert(o_psram_cs==0);
+          assert(busy==1);
           assert(U13_U25.state==stateRead_SendReadCmd_1);
 #2        assert(U13_U25.state==stateRead_SendReadCmd_2);
 #2        assert(U13_U25.state==stateRead_SendReadCmd_3);
@@ -176,6 +181,7 @@ initial begin
 
 #2        assert(U13_U25.state==stateRead3_0);
 #2        assert(U13_U25.state==stateIdle);
+          assert(busy==0);
           assert(o_psram_cs==1);          
 #30000  $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
         $finish(0);

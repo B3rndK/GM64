@@ -11,7 +11,7 @@
 module VIC6569(input clk,
                inout clkDot, 
                input reset, 
-               inout wire clkPhi0,
+               output clkPhi0,
                output o_hsync, 
                output o_vsync, 
                output [3:0] o_red, 
