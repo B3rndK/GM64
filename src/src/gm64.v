@@ -47,7 +47,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output o_clkVideo
             );
 
-  wire busy;
+  //wire busy;
   wire clkVideo, clkRAM, clkDot;
   reg clkPhi0;
   //assign o_clkRAM=clkRAM;
@@ -65,11 +65,16 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   wire nmi=0;
   wire writeToRam;
   wire [15*7:0] dataToWrite;
-  wire [7:0] dataRead;
+  reg [7:0] dataRead;
   wire [3:0] debugValue;
   reg [3:0] debug;
   reg [24:0] looper;
   wire [3:0] deb;
+  
+  reg [7:0] debug_mem_state;
+  reg busy;
+  reg o_dataReady;
+  reg dataAck;
 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
@@ -87,7 +92,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .bank(bank), .addrBus(addrBus), 
     .dataToWrite(dataToWrite), 
     .dataRead(dataRead), 
-    .busy(busy),
+    .isBusy(busy),
     .io_psram_data0(io_psram_data0),
     .io_psram_data1(io_psram_data1),
     .io_psram_data2(io_psram_data2),
@@ -97,7 +102,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data4(io_psram_data6),
     .io_psram_data5(io_psram_data7),
     .o_psram_cs(o_psram_cs),
-    .o_psram_sclk(o_psram_sclk)
+    .o_psram_sclk(o_psram_sclk),
+    .o_dataReady(o_dataReady),
+    .debug(debug_mem_state)
     );
   
   VIC6569 U19 (
@@ -115,8 +122,19 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   
   cpu U7(.clk(clk0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
 
-  
-  //assign deb=debug;
+
+  always@(posedge o_dataReady)
+  begin
+    if (o_dataReady) begin
+      if (dataRead==20) begin
+        dataAck=1;
+        debug=red;
+      end
+      else if (dataRead!=20) begin
+        //debug=gray;
+      end
+    end
+  end
 
   always @(posedge clkPhi0  or negedge reset)
   begin
@@ -130,41 +148,35 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       if (stop==1) begin
       end
       else if (stop==0) begin
-        if (looper<=2000000) begin
+        if (looper<=1300000) begin
           debug=green;
         end
         else if (looper>2000000 && looper<=3000000) begin
           debug=yellow;
         end
         else if (looper>3000000 && looper<=4000000) begin
-          debug=black;
+          debug=blue;  
         end
         else if (looper>4000000 && looper<=5000000) begin
           if (looper==4000001) begin
             addrbus=49152;
             bank=0;
-            dataToWrite=0;
+            dataToWrite=20;
             writeToRam=1;
             memCtrlCE=1;
           end
           if (looper==4000002) begin
-            addrbus=49152;
-            bank=0;
-            dataToWrite=0;
-            writeToRam=0;
-            memCtrlCE=1;
+            if (busy==0) begin
+              addrbus=49152;
+              bank=0;
+              dataToWrite=0;
+              writeToRam=0;
+              memCtrlCE=1;
+            end
           end
           if (looper==4000003) begin
-            if (busy===1) begin
-              debug=green;
-              stop=1;
-            end
-            else if (busy==='x) begin
-              debug=blue;
-              stop=1;
-            end
-            else if (busy==='z) begin
-              debug=navy;
+            if (dataIn==20) begin
+              debug=red;
               stop=1;
             end
           end
