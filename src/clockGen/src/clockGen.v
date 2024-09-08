@@ -20,11 +20,12 @@ reg resetDetected;
 reg usr_pll_lock_stdy_ram, usr_pll_lock_ram;
 reg usr_pll_lock_stdy_video, usr_pll_lock_video;
 reg usr_pll_lock_stdy_dot, usr_pll_lock_video_dot;
+reg usr_pll_lock_dot;
 
 CC_PLL #(
 	.REF_CLK(referenceClk),    // reference input in MHz
 	.OUT_CLK(dotClkPal),   // pll output frequency in MHz
-	.PERF_MD("ECONONY"), // LOWPOWER, ECONOMY, SPEED
+	.PERF_MD("SPEED"), // LOWPOWER, ECONOMY, SPEED
 	.LOW_JITTER(1),      // 0: disable, 1: enable low jitter mode
 ) pll_inst_clkdot (
 	.CLK_REF(clk10Mhz), .CLK_FEEDBACK(1'b0),
@@ -35,8 +36,8 @@ CC_PLL #(
 CC_PLL #(
 	.REF_CLK(referenceClk),    // reference input in MHz
 	.OUT_CLK(videoFrequency),   // pll output frequency in MHz
-	.PERF_MD("ECONOMY"), // LOWPOWER, ECONOMY, SPEED
-	.LOW_JITTER(0),      // 0: disable, 1: enable low jitter mode
+	.PERF_MD("SPEED"), // LOWPOWER, ECONOMY, SPEED
+	.LOW_JITTER(1),      // 0: disable, 1: enable low jitter mode
 ) pll_inst_clkvideo (
 	.CLK_REF(clk10Mhz), .CLK_FEEDBACK(1'b0), 
 	.USR_LOCKED_STDY_RST(resetDetected), .USR_PLL_LOCKED_STDY(usr_pll_lock_stdy_video), .USR_PLL_LOCKED(usr_pll_lock_video),
@@ -46,14 +47,14 @@ CC_PLL #(
 CC_PLL #(
 	.REF_CLK(referenceClk),    // reference input in MHz
 	.OUT_CLK("100.0"),   // pll output frequency in MHz
-	.PERF_MD("ECONOMY"), // LOWPOWER, ECONOMY, SPEED
-	.LOW_JITTER(0),      // 0: disable, 1: enable low jitter mode
+	.PERF_MD("SPEED"), // LOWPOWER, ECONOMY, SPEED
+	.LOW_JITTER(1),      // 0: disable, 1: enable low jitter mode
 ) pll_inst_ram (
 	.CLK_REF(clk10Mhz), .CLK_FEEDBACK(1'b0),
 	.USR_LOCKED_STDY_RST(resetDetected), .USR_PLL_LOCKED_STDY(usr_pll_lock_stdy_ram), .USR_PLL_LOCKED(usr_pll_lock_ram),
 	.CLK0(clkRAM)
 );
-
+/*
 	always @(posedge clk10Mhz, negedge reset)
 	begin
 		if (reset) begin
@@ -61,7 +62,7 @@ CC_PLL #(
 		end
 		else resetDetected=0;
 	end;
-
+*/
 endmodule
 
 `endif

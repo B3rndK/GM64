@@ -29,7 +29,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output o_hsync, 
             output o_vsync, 
             output o_psram_cs,
-            output o_psram_sclk,
+            output wire o_psram_sclk,
             inout  wire io_psram_data0,
             inout  wire io_psram_data1,
             inout  wire io_psram_data2,
@@ -41,30 +41,21 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output [3:0] o_red, 
             output [3:0] o_green, 
             output [3:0] o_blue,
-            // Test only
-            output o_clkRAM,
-            output o_clkDot,
-            output o_clkVideo
             );
 
-  //wire busy;
-  wire clkVideo, clkRAM, clkDot;
+  
   reg clkPhi0;
-  //assign o_clkRAM=clkRAM;
-  assign o_clkDot=clkDot;
-  //assign o_clkVideo=clkVideo;
   
   reg [15:0] addrBus; // out, address
-  reg [6:0] bank;
+  reg [5:0] bank;
   wire [7:0] dataIn;  // write to memory
   wire [7:0] dataOut; // read from memory
   wire WE; // out, WriteEnable
-  wire memCtrlCE; // CE for memory controller    
   wire irq=0;
   wire rdy=1;
   wire nmi=0;
-  wire writeToRam;
-  wire [15*7:0] dataToWrite;
+  reg  writeToRam;
+  reg [7:0] dataToWrite;
   reg [7:0] dataRead;
   wire [3:0] debugValue;
   reg [3:0] debug;
@@ -75,11 +66,30 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   reg busy;
   reg o_dataReady;
   reg dataAck;
+  reg memCtrlCE; // CE for memory controller    
+  reg stop;
+  reg fpgaStart;  
+  reg clkDot, clkVideo;
+  
+  reg clkRAM;
+  
+  reg clk100Mhz;
+  assign o_psram_sclk=clk100Mhz;
 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
   
+  always@(posedge clkRAM or negedge clkRAM)
+  begin
+      if (clkRAM) begin
+        clk100Mhz=clkRAM;
+      end 
+      else begin
+        clk100Mhz=clkRAM;
+      end
+  end;
+
   reset U20 (.clk(clk0), .fpga_but1(fpga_but1), .fpgaStart(fpgaStart), .reset(reset));  
 
   clockGen U31 (.clk10Mhz (clk0),
@@ -102,7 +112,6 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data4(io_psram_data6),
     .io_psram_data5(io_psram_data7),
     .o_psram_cs(o_psram_cs),
-    .o_psram_sclk(o_psram_sclk),
     .o_dataReady(o_dataReady),
     .debug(debug_mem_state)
     );
@@ -121,7 +130,6 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   );
   
   cpu U7(.clk(clk0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
-
 
   always@(posedge o_dataReady)
   begin
@@ -159,7 +167,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         end
         else if (looper>4000000 && looper<=5000000) begin
           if (looper==4000001) begin
-            addrbus=49152;
+            addrBus=49152;
             bank=0;
             dataToWrite=20;
             writeToRam=1;
@@ -167,7 +175,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           end
           if (looper==4000002) begin
             if (busy==0) begin
-              addrbus=49152;
+              addrBus=49152;
               bank=0;
               dataToWrite=0;
               writeToRam=0;
@@ -187,49 +195,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         looper++;
       end
     end
-      /*
-      case (looper)
-      4: begin
-        looper++;
-        debug=3;
-        addrbus=49152;
-        bank=0;
-        dataToWrite=0;
-        writeToRam=1;
-        memCtrlCE=1;
-      end
-      5: begin
-        debug=5;
-        addrbus=49152;
-        bank=0;
-        dataToWrite=0;
-        writeToRam=0;
-        memCtrlCE=1;
-        looper++;
-      end
-      6: begin 
-        if (busy==0) begin
-            debug=2; 
-          if (dataRead==0) begin
-            debug=2; 
-            looper++;
-          end
-          else if (dataRead!=0) begin
-            debug=1; 
-            looper++;
-          end
-        end
-      end
-      7: begin
-        looper=7;
-      end
-
-      default:
-        debug=4;
-
-      endcase */
-    end  
-
+  end  
 endmodule  
 
 /*
