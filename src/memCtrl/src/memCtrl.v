@@ -79,46 +79,45 @@ typedef enum bit[7:0] {
 
 module memCtrl( input            clk,
                 input            reset,
-                inout reg        CE,    // 1-enable
+                inout wire CE,    // 1-enable
                 input            write, // 0-read, 1-write
                 input reg [5:0]  bank,  // bank 0-31, each of 64KB = 2097152 bytes
                 input reg [15:0] addrBus,
-                input  reg [7:0] dataToWrite,
-                output reg [7:0] dataRead,
-                inout  reg io_psram_data0,
-                inout reg  io_psram_data1,
-                inout  reg io_psram_data2,
-                inout  reg io_psram_data3,
-                inout  reg io_psram_data4,
-                inout  reg io_psram_data5,
-                inout  reg io_psram_data6,
-                inout  reg io_psram_data7,            
-                output reg o_psram_cs,
-                output reg o_psram_sclk,
+                input reg [7:0] dataToWrite,
+                output wire [7:0] dataRead,
+                inout wire io_psram_data0,
+                inout wire io_psram_data1,
+                inout wire io_psram_data2,
+                inout wire io_psram_data3,
+                inout wire io_psram_data4,
+                inout wire io_psram_data5,
+                inout wire io_psram_data6,
+                inout wire io_psram_data7,            
+                output wire o_psram_cs,
                 output reg isBusy, // 1-busy
                 output reg o_dataReady,
                 output reg [7:0] debug); 
   
-  reg dataU7[3:0];
-  reg dataU9[3:0];
+  reg dataU7[2:0];
+  reg dataU9[2:0];
 
-  assign  io_psram_data0=dataU7[0];
-  assign  io_psram_data1=dataU7[1];
-  assign  io_psram_data2=dataU7[2];
-  assign  io_psram_data3=dataU7[3];
-  assign  io_psram_data4=dataU9[0];
-  assign  io_psram_data5=dataU9[1];
-  assign  io_psram_data6=dataU9[2];
-  assign  io_psram_data7=dataU9[3];         
+  assign io_psram_data0=dataU7[0];
+  assign io_psram_data1=dataU7[1];
+  assign io_psram_data2=dataU7[2];
+  assign io_psram_data3=dataU7[3];
+  assign io_psram_data4=dataU9[0];
+  assign io_psram_data5=dataU9[1];
+  assign io_psram_data6=dataU9[2];
+  assign io_psram_data7=dataU9[3];         
 
-  assign  dataRead[0]=o_dataReady==1 ? byteToRead[0] : 'z;
-  assign  dataRead[1]=o_dataReady==1 ? byteToRead[1] : 'z; 
-  assign  dataRead[2]=o_dataReady==1 ? byteToRead[2] : 'z; 
-  assign  dataRead[3]=o_dataReady==1 ? byteToRead[3] : 'z; 
-  assign  dataRead[4]=o_dataReady==1 ? byteToRead[4] : 'z; 
-  assign  dataRead[5]=o_dataReady==1 ? byteToRead[5] : 'z; 
-  assign  dataRead[6]=o_dataReady==1 ? byteToRead[6] : 'z; 
-  assign  dataRead[7]=o_dataReady==1 ? byteToRead[7] : 'z; 
+  assign  dataRead[0]=o_dataReady==1 ? byteToRead[0] : 1'bZ;
+  assign  dataRead[1]=o_dataReady==1 ? byteToRead[1] : 1'bZ; 
+  assign  dataRead[2]=o_dataReady==1 ? byteToRead[2] : 1'bZ; 
+  assign  dataRead[3]=o_dataReady==1 ? byteToRead[3] : 1'bZ; 
+  assign  dataRead[4]=o_dataReady==1 ? byteToRead[4] : 1'bZ; 
+  assign  dataRead[5]=o_dataReady==1 ? byteToRead[5] : 1'bZ; 
+  assign  dataRead[6]=o_dataReady==1 ? byteToRead[6] : 1'bZ; 
+  assign  dataRead[7]=o_dataReady==1 ? byteToRead[7] : 1'bZ; 
   
   reg [24:0] address;
   
@@ -129,7 +128,7 @@ module memCtrl( input            clk,
   parameter HIGH=1'b1;
  
   parameter initDelayInClkCyles=15000; // 150us @100Mhz
-  shortint delayCounter;
+  reg [15:0] delayCounter;
  
   wire CS;
 
@@ -147,39 +146,31 @@ module memCtrl( input            clk,
 //  assign busy=isBusy;
   reg psram_cs;
   assign o_psram_cs=psram_cs;
-
   shortint shifter;
      
-  always @(clk)
-  begin
-    if (delayCounter>0) delayCounter--;
-    //o_psram_sclk=(clk==1 ? 1:0);
-  end
-
   always @(posedge clk or posedge reset) 
   begin
     if (reset) begin
-      state=stateReset;
-      o_dataReady=0;
-      delayCounter=initDelayInClkCyles;
-      psram_cs=HIGH;
-      isBusy=1;
-      
+      state<=stateReset;
+      o_dataReady<=0;
+      psram_cs<=HIGH;
+      isBusy<=1;
       // U7
-      dataU7[0]=LOW;
-      dataU7[1]=LOW;
-      dataU7[2]=LOW;
-      dataU7[3]=LOW;
+      dataU7[0]<=1'bZ;
+      dataU7[1]<=1'bZ;
+      dataU7[2]<=1'bZ;
+      dataU7[3]<=1'bZ;
       
       // U9
-      dataU9[0]=LOW;
-      dataU9[1]=LOW;
-      dataU9[2]=LOW;
-      dataU9[3]=LOW;
+      dataU9[0]<=1'bZ;
+      dataU9[1]<=1'bZ;
+      dataU9[2]<=1'bZ;
+      dataU9[3]<=1'bZ;
     end
     else begin
       if (state==stateReset) begin
-        state=stateInit_1;
+        delayCounter<=initDelayInClkCyles;
+        state<=stateInit_1;
       end
     end
   end
@@ -187,58 +178,58 @@ module memCtrl( input            clk,
   always @(posedge clk) begin
     case (state)
       stateInit_1: begin
+        delayCounter--;
         if (delayCounter==0) begin
-          state=stateInit_2;
+          state<=stateInit_2;
         end
       end
-
       stateInit_2: begin // Enable QPI mode
-        shifter=0;
-        state=stateEnableQPI;
+        shifter<=0;
+        state<=stateEnableQPI;
       end
 
       stateEnableQPI: begin // Enable QPI mode
         case (shifter)
           0: begin
-            psram_cs=LOW;
-            dataU7[0]=enableQPIMode[7];    
-            dataU7[1]='z;
-            dataU7[2]='z;
-            dataU7[3]='z;
-            dataU9[0]=enableQPIMode[7];
-            dataU9[1]='z;
-            dataU9[2]='z;
-            dataU9[3]='z;
+            psram_cs<=LOW;
+            dataU7[0]<=enableQPIMode[7];    
+            dataU7[1]<=1'bZ;
+            dataU7[2]<=1'bZ;
+            dataU7[3]<=1'bZ;
+            dataU9[0]<=enableQPIMode[7];
+            dataU9[1]<=1'bZ;
+            dataU9[2]<=1'bZ;
+            dataU9[3]<=1'bZ;
           end
           1: begin
-            dataU7[0]=enableQPIMode[6];    
-            dataU9[0]=enableQPIMode[6];
+            dataU7[0]<=enableQPIMode[6];    
+            dataU9[0]<=enableQPIMode[6];
           end
           2: begin
-            dataU7[0]=enableQPIMode[5];    
-            dataU9[0]=enableQPIMode[5];
+            dataU7[0]<=enableQPIMode[5];    
+            dataU9[0]<=enableQPIMode[5];
           end
           3: begin
-            dataU7[0]=enableQPIMode[4];    
-            dataU9[0]=enableQPIMode[4];
+            dataU7[0]<=enableQPIMode[4];    
+            dataU9[0]<=enableQPIMode[4];
           end
           4: begin
-            dataU7[0]=enableQPIMode[3];    
-            dataU9[0]=enableQPIMode[3];
+            dataU7[0]<=enableQPIMode[3];    
+            dataU9[0]<=enableQPIMode[3];
           end
           5: begin
-            dataU7[0]=enableQPIMode[2];    
-            dataU9[0]=enableQPIMode[2];
+            dataU7[0]<=enableQPIMode[2];    
+            dataU9[0]<=enableQPIMode[2];
           end
           6: begin
-            dataU7[0]=enableQPIMode[1];    
-            dataU9[0]=enableQPIMode[1];
+            dataU7[0]<=enableQPIMode[1];    
+            dataU9[0]<=enableQPIMode[1];
           end
           7: begin
-            dataU7[0]=enableQPIMode[0];    
-            dataU9[0]=enableQPIMode[0];
-            psram_cs=HIGH;
-            state=stateIdle;
+            dataU7[0]<=enableQPIMode[0];    
+            dataU9[0]<=enableQPIMode[0];
+            psram_cs<=HIGH;
+            state<=stateIdle;
           end
           default:
             ;
@@ -248,32 +239,32 @@ module memCtrl( input            clk,
 
       stateIdle: begin
         if (CE) begin
-          memCtrlCE=0;
-          o_dataReady=0;
-          isBusy=1;
-          byteToWrite=dataToWrite;
-          address=addrBus<<3;  
-          address[23]=bank[4];  
-          address[22]=bank[3];
-          address[21]=bank[2];
-          address[20]=bank[1];
-          address[19]=bank[0];  
-          dataU7[1]='z;
-          dataU7[2]='z;
-          dataU7[3]='z;
+          memCtrlCE<=0;
+          o_dataReady<=0;
+          isBusy<=1;
+          byteToWrite<=dataToWrite;
+          address<=addrBus<<3;  
+          address[23]<=bank[4];  
+          address[22]<=bank[3];
+          address[21]<=bank[2];
+          address[20]<=bank[1];
+          address[19]<=bank[0];  
+          dataU7[1]<=1'bZ;
+          dataU7[2]<=1'bZ;
+          dataU7[3]<=1'bZ;
 
           if (write) begin
-            state=stateWrite_SendWriteCmd_1;
-            dataU7[0]=SPIQuadWrite[7];
+            state<=stateWrite_SendWriteCmd_1;
+            dataU7[0]<=SPIQuadWrite[7];
             //byteToSendCounter=4;
           end
           else begin
-            state=stateRead_SendReadCmd_1;
-            dataU7[0]=SPIQuadRead[7];
+            state<=stateRead_SendReadCmd_1;
+            dataU7[0]<=SPIQuadRead[7];
           end
-          psram_cs=LOW;
+          psram_cs<=LOW;
         end
-        else isBusy=0;
+        else isBusy<=0;
       end
       
       default:
@@ -286,13 +277,13 @@ module memCtrl( input            clk,
   always @(posedge clk) begin
     if (state>=stateRead_SendReadCmd_1 && state<=stateRead_SendReadCmd_7) begin
       case (state)
-        stateRead_SendReadCmd_1: dataU7[0]=SPIQuadRead[6];
-        stateRead_SendReadCmd_2: dataU7[0]=SPIQuadRead[5];
-        stateRead_SendReadCmd_3: dataU7[0]=SPIQuadRead[4];
-        stateRead_SendReadCmd_4: dataU7[0]=SPIQuadRead[3];
-        stateRead_SendReadCmd_5: dataU7[0]=SPIQuadRead[2];
-        stateRead_SendReadCmd_6: dataU7[0]=SPIQuadRead[1];
-        stateRead_SendReadCmd_7: dataU7[0]=SPIQuadRead[0];
+        stateRead_SendReadCmd_1: dataU7[0]<=SPIQuadRead[6];
+        stateRead_SendReadCmd_2: dataU7[0]<=SPIQuadRead[5];
+        stateRead_SendReadCmd_3: dataU7[0]<=SPIQuadRead[4];
+        stateRead_SendReadCmd_4: dataU7[0]<=SPIQuadRead[3];
+        stateRead_SendReadCmd_5: dataU7[0]<=SPIQuadRead[2];
+        stateRead_SendReadCmd_6: dataU7[0]<=SPIQuadRead[1];
+        stateRead_SendReadCmd_7: dataU7[0]<=SPIQuadRead[0];
       endcase
       state++;
     end
@@ -303,45 +294,45 @@ module memCtrl( input            clk,
     if (state>=stateRead_SendAddr23_20 && state<=stateRead_SendAddr3_0) begin
       case (state)
         stateRead_SendAddr23_20: begin
-          dataU7[0]=address[20];
-          dataU7[1]=address[21];
-          dataU7[2]=address[22];
-          dataU7[3]=address[23];
+          dataU7[0]<=address[20];
+          dataU7[1]<=address[21];
+          dataU7[2]<=address[22];
+          dataU7[3]<=address[23];
         end
 
         stateRead_SendAddr19_16: begin
-          dataU7[0]=address[16];
-          dataU7[1]=address[17];
-          dataU7[2]=address[18];
-          dataU7[3]=address[19];
+          dataU7[0]<=address[16];
+          dataU7[1]<=address[17];
+          dataU7[2]<=address[18];
+          dataU7[3]<=address[19];
         end
 
         stateRead_SendAddr15_12: begin
-          dataU7[0]=address[12];
-          dataU7[1]=address[13];
-          dataU7[2]=address[14];
-          dataU7[3]=address[15];
+          dataU7[0]<=address[12];
+          dataU7[1]<=address[13];
+          dataU7[2]<=address[14];
+          dataU7[3]<=address[15];
         end
 
         stateRead_SendAddr11_8: begin
-          dataU7[0]=address[8];
-          dataU7[1]=address[9];
-          dataU7[2]=address[10];
-          dataU7[3]=address[11];
+          dataU7[0]<=address[8];
+          dataU7[1]<=address[9];
+          dataU7[2]<=address[10];
+          dataU7[3]<=address[11];
         end
 
         stateRead_SendAddr7_4: begin
-          dataU7[0]=address[4];
-          dataU7[1]=address[5];
-          dataU7[2]=address[6];
-          dataU7[3]=address[7];
+          dataU7[0]<=address[4];
+          dataU7[1]<=address[5];
+          dataU7[2]<=address[6];
+          dataU7[3]<=address[7];
         end
 
         stateRead_SendAddr3_0: begin
-          dataU7[0]=address[0];
-          dataU7[1]=address[1];
-          dataU7[2]=address[2];
-          dataU7[3]=address[3];
+          dataU7[0]<=address[0];
+          dataU7[1]<=address[1];
+          dataU7[2]<=address[2];
+          dataU7[3]<=address[3];
         end
       endcase
       state++;
@@ -361,23 +352,23 @@ module memCtrl( input            clk,
     if (state>=stateRead7_4 && state<=stateRead3_0) begin
       case (state)
         stateRead7_4: begin
-          byteToRead[4]=dataU7[0];
-          byteToRead[5]=dataU7[1];
-          byteToRead[6]=dataU7[2];
-          byteToRead[7]=dataU7[3];
+          byteToRead[4]<=dataU7[0];
+          byteToRead[5]<=dataU7[1];
+          byteToRead[6]<=dataU7[2];
+          byteToRead[7]<=dataU7[3];
         end
 
         stateRead3_0: begin
-          byteToRead[0]=dataU7[0];
-          byteToRead[1]=dataU7[1];
-          byteToRead[2]=dataU7[2];
-          byteToRead[3]=dataU7[3];
+          byteToRead[0]<=dataU7[0];
+          byteToRead[1]<=dataU7[1];
+          byteToRead[2]<=dataU7[2];
+          byteToRead[3]<=dataU7[3];
           /* if (byteToSendCounter>1) state-=2;
           else psram_cs=HIGH;*/
-          psram_cs=HIGH;
-          state=stateIdle;
-          isBusy=0;
-          o_dataReady=1;
+          psram_cs<=HIGH;
+          state<=stateIdle;
+          isBusy<=0;
+          o_dataReady<=1;
         end
       endcase
       //byteToSendCounter--;
@@ -390,13 +381,13 @@ module memCtrl( input            clk,
   always @(posedge clk) begin
     if (state>=stateWrite_SendWriteCmd_1 && state<=stateWrite_SendWriteCmd_7) begin
       case (state)
-        stateWrite_SendWriteCmd_1: dataU7[0]=SPIQuadWrite[6];
-        stateWrite_SendWriteCmd_2: dataU7[0]=SPIQuadWrite[5];
-        stateWrite_SendWriteCmd_3: dataU7[0]=SPIQuadWrite[4];
-        stateWrite_SendWriteCmd_4: dataU7[0]=SPIQuadWrite[3];
-        stateWrite_SendWriteCmd_5: dataU7[0]=SPIQuadWrite[2];
-        stateWrite_SendWriteCmd_6: dataU7[0]=SPIQuadWrite[1];
-        stateWrite_SendWriteCmd_7: dataU7[0]=SPIQuadWrite[0];
+        stateWrite_SendWriteCmd_1: dataU7[0]<=SPIQuadWrite[6];
+        stateWrite_SendWriteCmd_2: dataU7[0]<=SPIQuadWrite[5];
+        stateWrite_SendWriteCmd_3: dataU7[0]<=SPIQuadWrite[4];
+        stateWrite_SendWriteCmd_4: dataU7[0]<=SPIQuadWrite[3];
+        stateWrite_SendWriteCmd_5: dataU7[0]<=SPIQuadWrite[2];
+        stateWrite_SendWriteCmd_6: dataU7[0]<=SPIQuadWrite[1];
+        stateWrite_SendWriteCmd_7: dataU7[0]<=SPIQuadWrite[0];
       endcase
       state++;
     end
@@ -407,45 +398,45 @@ module memCtrl( input            clk,
     if (state>=stateWrite_SendAddr23_20 && state<=stateWrite_SendAddr3_0) begin
       case (state)
         stateWrite_SendAddr23_20: begin
-          dataU7[0]=address[20];
-          dataU7[1]=address[21];
-          dataU7[2]=address[22];
-          dataU7[3]=address[23];
+          dataU7[0]<=address[20];
+          dataU7[1]<=address[21];
+          dataU7[2]<=address[22];
+          dataU7[3]<=address[23];
         end
 
         stateWrite_SendAddr19_16: begin
-          dataU7[0]=address[16];
-          dataU7[1]=address[17];
-          dataU7[2]=address[18];
-          dataU7[3]=address[19];
+          dataU7[0]<=address[16];
+          dataU7[1]<=address[17];
+          dataU7[2]<=address[18];
+          dataU7[3]<=address[19];
         end
 
         stateWrite_SendAddr15_12: begin
-          dataU7[0]=address[12];
-          dataU7[1]=address[13];
-          dataU7[2]=address[14];
-          dataU7[3]=address[15];
+          dataU7[0]<=address[12];
+          dataU7[1]<=address[13];
+          dataU7[2]<=address[14];
+          dataU7[3]<=address[15];
         end
 
         stateWrite_SendAddr11_8: begin
-          dataU7[0]=address[8];
-          dataU7[1]=address[9];
-          dataU7[2]=address[10];
-          dataU7[3]=address[11];
+          dataU7[0]<=address[8];
+          dataU7[1]<=address[9];
+          dataU7[2]<=address[10];
+          dataU7[3]<=address[11];
         end
 
         stateWrite_SendAddr7_4: begin
-          dataU7[0]=address[4];
-          dataU7[1]=address[5];
-          dataU7[2]=address[6];
-          dataU7[3]=address[7];
+          dataU7[0]<=address[4];
+          dataU7[1]<=address[5];
+          dataU7[2]<=address[6];
+          dataU7[3]<=address[7];
         end
 
         stateWrite_SendAddr3_0: begin
-          dataU7[0]=address[0];
-          dataU7[1]=address[1];
-          dataU7[2]=address[2];
-          dataU7[3]=address[3];
+          dataU7[0]<=address[0];
+          dataU7[1]<=address[1];
+          dataU7[2]<=address[2];
+          dataU7[3]<=address[3];
         end
       endcase
       state++;
@@ -457,25 +448,25 @@ module memCtrl( input            clk,
     if (state>=stateWrite_SendData7_4 && state<=stateWrite_SendData3_0) begin
       case (state)
         stateWrite_SendData7_4: begin
-          dataU7[0]=byteToWrite[4];
-          dataU7[1]=byteToWrite[5];
-          dataU7[2]=byteToWrite[6];
-          dataU7[3]=byteToWrite[7];
+          dataU7[0]<=byteToWrite[4];
+          dataU7[1]<=byteToWrite[5];
+          dataU7[2]<=byteToWrite[6];
+          dataU7[3]<=byteToWrite[7];
           state++;
         end
 
         stateWrite_SendData3_0: begin
-          dataU7[0]=byteToWrite[0];
-          dataU7[1]=byteToWrite[1];
-          dataU7[2]=byteToWrite[2];
-          dataU7[3]=byteToWrite[3];
+          dataU7[0]<=byteToWrite[0];
+          dataU7[1]<=byteToWrite[1];
+          dataU7[2]<=byteToWrite[2];
+          dataU7[3]<=byteToWrite[3];
           /* if (byteToSendCounter>1) state-=2;
           else psram_cs=HIGH;*/
-          psram_cs=HIGH;
-          state=stateIdle;
-          memCtrlCE=0;
-          debug=3;
-          isBusy=0;
+          psram_cs<=HIGH;
+          state<=stateIdle;
+          memCtrlCE<=0;
+          debug<=3;
+          isBusy<=0;
         end
       endcase
       //byteToSendCounter--;

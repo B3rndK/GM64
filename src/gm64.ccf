@@ -53,31 +53,19 @@ Net   "io_psram_data0"    Loc = "IO_WC_A5"; # PSRAM DATA0
 Net   "io_psram_data1"    Loc = "IO_WC_B5"; # PSRAM DATA1
 Net   "io_psram_data2"    Loc = "IO_WC_A6"; # PSRAM DATA2
 Net   "io_psram_data3"    Loc = "IO_WC_B6"; # PSRAM DATA3
-Net   "io_psram_data4"    Loc ="IO_WC_A7"; # PSRAM DATA4
+Net   "io_psram_data4"    Loc = "IO_WC_A7"; # PSRAM DATA4
 Net   "io_psram_data5"    Loc = "IO_WC_B7"; # PSRAM DATA5
 Net   "io_psram_data6"    Loc = "IO_WC_A8"; # PSRAM DATA6
 Net   "io_psram_data7"    Loc = "IO_WC_B8"; # PSRAM DATA7
 
-# PS2
-Net  "ps2_clk" Loc = "IO_WB_A0";
-Net  "ps2_data" Loc = "IO_WB_B0";
-
-
 # For testing via oscilloscope only
-Net "o_clkRAM"    Loc="IO_NA_A0"; # 100 Mhz clock for o_clkRAM
-Net "o_clkDot"    Loc="IO_NB_A0"; # 7.881984 Mhz clock for o_clkRAM
-Net "o_clkVideo"  Loc="IO_EB_A8"; # 24.8 Mhz clock for HDMI quirk video mode
-Net "o_clk10Mhz"  Loc="IO_NA_A1"; # 10 Mhz clk0
-
-# LED
-Pin_out "fpga_led" Loc= "IO_SB_B6"; 
-Pin_out "jtag_led" Loc = "IO_SB_B5"; 
+#Net "o_clkRAM"    Loc="IO_NA_A0"; # 100 Mhz clock for o_clkRAM
+#Net "o_clkDot"    Loc="IO_NB_A0"; # 7.881984 Mhz clock for o_clkRAM
+#Net "o_clkVideo"  Loc="IO_EB_A8"; # 24.8 Mhz clock for HDMI quirk video mode
+#Net "o_clk10Mhz"  Loc="IO_NA_A1"; # 10 Mhz clk0
 
 # CLK
 Pin_in   "clk0"  Loc = "IO_SB_A8" | SCHMITT_TRIGGER=true; # 10 Mhz
-Pin_out  "clk1"  Loc = "IO_SB_A7";
-Pin_out  "clk2"  Loc = "IO_SB_A6";
-Pin_out  "clk3"  Loc = "IO_SB_A5";
 
 Pin_in  "fpga_but1" Loc = "IO_SB_B7" | PULLUP=true;
 
