@@ -140,37 +140,33 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       writeToRam<=0;
     end
     else begin
-      /*
       if (o_dataReady==1) begin
         if (dataRead==121) begin
           dataAck<=1;
           debug<=green;
-          stop<=1;
+          stop=1;
         end
-      end */
-      if (stop==1) begin
-      end
-      else if (stop==0) begin
-        if (looper<=100000) begin
+      end 
+      if (stop==0) begin
+        if (looper<=500) begin
           debug<=navy;
         end
-        else if (looper>100000 && looper<=200000) begin
+        else if (looper>500 && looper<=1000) begin
           debug<=yellow;
         end
-        else if (looper>200000 && looper<=300000) begin
+        else if (looper>1000 && looper<=1500) begin
           debug<=blue;  
         end
-        else if (looper>300000 && looper<=400000) begin
+        else if (looper>1500 && looper<=2000) begin
           debug<=red;  
-          /*
-          if (looper==4000001) begin
+          if (looper==1510) begin
             addrBusMemCtrl<=49152;
             bank<=0;
-            dataToWrite<=122;
+            dataToWrite<=121;
             writeToRam<=1;
             memCtrlCE<=1;
           end
-          if (looper==4000002) begin
+          if (looper==1511) begin
             if (busy==0) begin
               addrBusMemCtrl<=49152;
               bank<=0;
@@ -178,10 +174,10 @@ module gm64(input clk0, // 10Mhz coming from FPGA
               writeToRam<=0;
               memCtrlCE<=1;
             end
-          end*/
+          end
         end
         looper<=looper+1;
-        if (looper>500000)
+        if (looper>2000)
         begin
           looper<=0;
         end
