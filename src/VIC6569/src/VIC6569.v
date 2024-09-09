@@ -9,7 +9,7 @@
 */
 
 module VIC6569(input clk,
-               inout clkDot, 
+               input clkDot, 
                input reset, 
                output clkPhi0,
                output o_hsync, 
@@ -17,7 +17,7 @@ module VIC6569(input clk,
                output [3:0] o_red, 
                output [3:0] o_green, 
                output [3:0] o_blue,
-               input [3:0] debugValue);
+               input reg [3:0] debugValue);
                
 
   reg [3:0] red;
@@ -29,8 +29,14 @@ module VIC6569(input clk,
   wire [9:0] o_vpos;
 
   // Creating Phi0 clock for CPU by dividing clkDot by 
-  reg [5:0] cntPhi0;
-  assign clkPhi0=cntPhi0>7;
+  reg [4:0] cntPhi0;
+  
+  reg clkPhi;
+  assign clkPhi0=clkPhi;
+
+  // Connect the new clk to the global routing resources to ensure that all
+  // modules get the signal (nearly...) at the same time
+  // CC_BUFG pll_clkPhi0 (.I(clkPhi), .O(clkPhi0));
 
   syncGen sync_gen(
     .clk(clk),
@@ -45,19 +51,19 @@ module VIC6569(input clk,
   always @(posedge clk or posedge reset)
   begin
     if (reset) begin
-      red=0;
-      green=0;       
-      blue=0;       
+      red<=0;
+      green<=0;       
+      blue<=0;       
     end 
     else begin
       case (debugValue)
-        4'b0000 : begin red=0; green=0; blue=0; end
-        4'b0001 : begin red=15;green=0;blue=0; end
-        4'b0010 : begin red=0;green=15;blue=0; end
-        4'b0011 : begin red=15;green=15;blue=0; end
-        4'b0100 : begin red=0;green=15;blue=15; end
-        4'b0101 : begin red=0;green=0;blue=15; end
-        default : begin red=15;green=15;blue=15; end
+        4'b0000 : begin red<=0; green<=0; blue<=0; end
+        4'b0001 : begin red<=15;green<=0;blue<=0; end
+        4'b0010 : begin red<=0;green<=15;blue<=0; end
+        4'b0011 : begin red<=15;green<=15;blue<=0; end
+        4'b0100 : begin red<=0;green<=15;blue<=15; end
+        4'b0101 : begin red<=0;green<=0;blue<=15; end
+        default : begin red<=15;green<=15;blue<=15; end
       endcase
       /*
       if (o_vpos>=0 && o_vpos<556) begin
@@ -82,13 +88,16 @@ module VIC6569(input clk,
   always @(posedge clkDot or posedge reset)
   begin
     if (reset) begin
-      cntPhi0=0;
+      cntPhi0<=0;
+      clkPhi<=0;
     end 
     else begin
-      cntPhi0++;
-      if (cntPhi0>16) begin
-        cntPhi0=0;
+      cntPhi0<=cntPhi0+1;
+      if (cntPhi0==16) begin
+        cntPhi0<=0;
+        clkPhi<=0;
       end
+      else clkPhi<=(cntPhi0>7);
     end
   end
 endmodule

@@ -45,8 +45,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
 
   
   reg clkPhi0;
-  
+ 
   reg [15:0] addrBus; // out, address
+  reg [15:0] addrBusMemCtrl; // out, address
   reg [5:0] bank;
   wire [7:0] dataIn;  // write to memory
   wire [7:0] dataOut; // read from memory
@@ -70,25 +71,12 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   reg stop;
   reg fpgaStart;  
   reg clkDot, clkVideo;
-  
   reg clkRAM;
   
-  reg clk100Mhz;
-  assign o_psram_sclk=clk100Mhz;
 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
-  
-  always@(posedge clkRAM or negedge clkRAM)
-  begin
-      if (clkRAM) begin
-        clk100Mhz=clkRAM;
-      end 
-      else begin
-        clk100Mhz=clkRAM;
-      end
-  end;
 
   reset U20 (.clk(clk0), .fpga_but1(fpga_but1), .fpgaStart(fpgaStart), .reset(reset));  
 
@@ -98,8 +86,10 @@ module gm64(input clk0, // 10Mhz coming from FPGA
                .clkVideo (clkVideo),
                .reset (!reset) // low active
               );
-
-  memCtrl U13_U25(.clk(clkRAM), .reset(reset), .CE(memCtrlCE), .write(writeToRam), .bank(bank), .addrBus(addrBus), 
+  
+  memCtrl U13_U25(.clk(clkRAM), 
+    .reset(reset), .CE(memCtrlCE), .write(writeToRam), .bank(bank), .addrBus(addrBusMemCtrl), 
+    .o_psram_sclk(o_psram_sclk),
     .dataToWrite(dataToWrite), 
     .dataRead(dataRead), 
     .isBusy(busy),
@@ -115,7 +105,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_dataReady(o_dataReady),
     .debug(debug_mem_state)
     );
-  
+
   VIC6569 U19 (
     .clk(clkVideo),
     .clkDot(clkDot),
@@ -129,14 +119,16 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .debugValue(debug) // testing only
   );
   
-  cpu U7(.clk(clk0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
+  assign dataIn=o_dataReady==1 ? dataRead : 1'bZ;
+
+  cpu U7(.clk(clkPhi0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
 
   always@(posedge o_dataReady)
   begin
     if (o_dataReady) begin
-      if (dataRead==20) begin
+      if (dataRead==223) begin
         dataAck=1;
-        debug=red;
+        //debug=blue;
       end
       else if (dataRead!=20) begin
         //debug=gray;
@@ -144,12 +136,11 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     end
   end
 
-  always @(posedge clkPhi0  or negedge reset)
+  always @(posedge clkPhi0 or negedge reset)
   begin
     if (!reset) begin
       looper=0;
-      memCtrlCE=0;
-      debug=black;
+      //memCtrlCE=0;
       stop=0;
     end
     else begin
@@ -157,29 +148,29 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       end
       else if (stop==0) begin
         if (looper<=1300000) begin
-          debug=green;
+          //debug=green;
         end
         else if (looper>2000000 && looper<=3000000) begin
-          debug=yellow;
+          //debug=yellow;
         end
         else if (looper>3000000 && looper<=4000000) begin
-          debug=blue;  
+          //debug=blue;  
         end
         else if (looper>4000000 && looper<=5000000) begin
           if (looper==4000001) begin
-            addrBus=49152;
+            addrBusMemCtrl=49152;
             bank=0;
-            dataToWrite=20;
+            dataToWrite=121;
             writeToRam=1;
-            memCtrlCE=1;
+            //memCtrlCE=1;
           end
           if (looper==4000002) begin
             if (busy==0) begin
-              addrBus=49152;
+              addrBusMemCtrl=49152;
               bank=0;
               dataToWrite=0;
               writeToRam=0;
-              memCtrlCE=1;
+              //memCtrlCE=1;
             end
           end
           if (looper==4000003) begin
