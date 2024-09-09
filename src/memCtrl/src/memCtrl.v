@@ -77,9 +77,15 @@ typedef enum bit[7:0] {
   SPIQuadRead=8'heb
 } QPICommands;
 
+typedef enum  {
+  READ=0,
+  WRITE=1
+} Direction;
+
+
 module memCtrl( input wire clk,
                 input wire reset,
-                inout wire CE,    // 1-enable
+                input wire CE,    // 1-enable
                 input wire write, // 0-read, 1-write
                 input reg [5:0]  bank,  // bank 0-31, each of 64KB = 2097152 bytes
                 input reg [15:0] addrBus,
@@ -90,7 +96,7 @@ module memCtrl( input wire clk,
                 inout wire io_psram_data1,
                 inout wire io_psram_data2,
                 inout wire io_psram_data3,
-                inout wire io_psram_data4,
+                inout wire io_psram_data4,                
                 inout wire io_psram_data5,
                 inout wire io_psram_data6,
                 inout wire io_psram_data7,            
@@ -99,27 +105,29 @@ module memCtrl( input wire clk,
                 output reg o_dataReady,
                 output reg [7:0] debug); 
   
-  reg dataU7[2:0];
-  reg dataU9[2:0];
+  reg dataU7[3:0];
+  reg dataU9[3:0];
+  Direction direction; // 1- in (read), 0-out (write)
 
-  assign io_psram_data0=dataU7[0];
-  assign io_psram_data1=dataU7[1];
-  assign io_psram_data2=dataU7[2];
-  assign io_psram_data3=dataU7[3];
-  assign io_psram_data4=dataU9[0];
-  assign io_psram_data5=dataU9[1];
-  assign io_psram_data6=dataU9[2];
-  assign io_psram_data7=dataU9[3];         
+  assign io_psram_data0=direction==READ ? 1'bZ : dataU7[0];
+  assign io_psram_data1=direction==READ ? 1'bZ : dataU7[1];
+  assign io_psram_data2=direction==READ ? 1'bZ : dataU7[2];
+  assign io_psram_data3=direction==READ ? 1'bZ : dataU7[3];
 
-  assign  dataRead[0]=o_dataReady==1 ? byteToRead[0] : 1'bZ;
-  assign  dataRead[1]=o_dataReady==1 ? byteToRead[1] : 1'bZ; 
-  assign  dataRead[2]=o_dataReady==1 ? byteToRead[2] : 1'bZ; 
-  assign  dataRead[3]=o_dataReady==1 ? byteToRead[3] : 1'bZ; 
-  assign  dataRead[4]=o_dataReady==1 ? byteToRead[4] : 1'bZ; 
-  assign  dataRead[5]=o_dataReady==1 ? byteToRead[5] : 1'bZ; 
-  assign  dataRead[6]=o_dataReady==1 ? byteToRead[6] : 1'bZ; 
-  assign  dataRead[7]=o_dataReady==1 ? byteToRead[7] : 1'bZ; 
-  
+  assign io_psram_data4=direction==READ ? 1'bZ : dataU9[0];
+  assign io_psram_data5=direction==READ ? 1'bZ : dataU9[1];
+  assign io_psram_data6=direction==READ ? 1'bZ : dataU9[2];
+  assign io_psram_data7=direction==READ ? 1'bZ : dataU9[3];
+
+  assign  dataRead[0]=o_dataReady ? byteToRead[0] : 1'bZ;
+  assign  dataRead[1]=o_dataReady ? byteToRead[1] : 1'bZ; 
+  assign  dataRead[2]=o_dataReady ? byteToRead[2] : 1'bZ; 
+  assign  dataRead[3]=o_dataReady ? byteToRead[3] : 1'bZ; 
+  assign  dataRead[4]=o_dataReady ? byteToRead[4] : 1'bZ; 
+  assign  dataRead[5]=o_dataReady ? byteToRead[5] : 1'bZ; 
+  assign  dataRead[6]=o_dataReady ? byteToRead[6] : 1'bZ; 
+  assign  dataRead[7]=o_dataReady ? byteToRead[7] : 1'bZ; 
+    
   reg [24:0] address;
   
   // Loops through 3-0 to reuse write state, writing 4x same byte
@@ -140,9 +148,7 @@ module memCtrl( input wire clk,
   reg [7:0] byteToWrite;
   reg [7:0] byteToRead;
   
-  reg memCtrlCE;
-  
-  assign CE=memCtrlCE;
+
 //  reg isBusy;
 //  assign busy=isBusy;
   reg psram_cs;
@@ -155,6 +161,7 @@ module memCtrl( input wire clk,
   always @(posedge clk or posedge reset) begin
     if (reset) begin
       state<=stateReset;
+      direction<=READ;
       o_dataReady<=0;
       psram_cs<=HIGH;
       isBusy<=1;
@@ -188,6 +195,7 @@ module memCtrl( input wire clk,
       end
 
       stateEnableQPI: begin // Enable QPI mode
+        direction<=WRITE;
         case (shifter)
           0: begin
             psram_cs<=LOW;
@@ -238,7 +246,7 @@ module memCtrl( input wire clk,
 
       stateIdle: begin
         if (CE) begin
-          memCtrlCE<=0;
+          direction<=WRITE;
           o_dataReady<=0;
           isBusy<=1;
           byteToWrite<=dataToWrite;
@@ -263,16 +271,11 @@ module memCtrl( input wire clk,
           end
           psram_cs<=LOW;
         end
-        else isBusy<=0;
+        else begin
+          isBusy<=0;
+          direction<=READ;
+        end
       end
-
-      stateRead_SendReadCmd_1: dataU7[0]<=SPIQuadRead[6];
-      stateRead_SendReadCmd_2: dataU7[0]<=SPIQuadRead[5];
-      stateRead_SendReadCmd_3: dataU7[0]<=SPIQuadRead[4];
-      stateRead_SendReadCmd_4: dataU7[0]<=SPIQuadRead[3];
-      stateRead_SendReadCmd_5: dataU7[0]<=SPIQuadRead[2];
-      stateRead_SendReadCmd_6: dataU7[0]<=SPIQuadRead[1];
-      stateRead_SendReadCmd_7: dataU7[0]<=SPIQuadRead[0];
 
       default:
         if (state>=stateRead_SendReadCmd_1 && state<=stateRead_SendReadCmd_7) begin
@@ -336,17 +339,17 @@ module memCtrl( input wire clk,
         else if (state>=stateRead7_4 && state<=stateRead3_0) begin
           case (state)
             stateRead7_4: begin
-              byteToRead[4]<=dataU7[0];
-              byteToRead[5]<=dataU7[1];
-              byteToRead[6]<=dataU7[2];
-              byteToRead[7]<=dataU7[3];
+              byteToRead[4]<=io_psram_data0;
+              byteToRead[5]<=io_psram_data1;
+              byteToRead[6]<=io_psram_data2;
+              byteToRead[7]<=io_psram_data3;
             end
 
             stateRead3_0: begin
-              byteToRead[0]<=dataU7[0];
-              byteToRead[1]<=dataU7[1];
-              byteToRead[2]<=dataU7[2];
-              byteToRead[3]<=dataU7[3];
+              byteToRead[0]<=io_psram_data0;
+              byteToRead[1]<=io_psram_data1;
+              byteToRead[2]<=io_psram_data2;
+              byteToRead[3]<=io_psram_data3;
               psram_cs<=HIGH;
               state<=stateIdle;
               isBusy<=0;
@@ -432,13 +435,13 @@ module memCtrl( input wire clk,
               else psram_cs=HIGH;*/
               psram_cs<=HIGH;
               state<=stateIdle;
-              memCtrlCE<=0;
               debug<=3;
               isBusy<=0;
             end
           endcase
         end
         else if (state>=stateRead_WaitCycle_1 && state<=stateRead_WaitCycle_7) begin
+          direction<=READ;
           state++;
         end
       endcase

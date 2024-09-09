@@ -49,14 +49,14 @@ Pin_out     "o_psram_cs"        Loc = "IO_WC_A4"; # PSRAM CS
 
 Pin_out     "o_psram_sclk"      Loc = "IO_WC_B4"; # PSRAM SCLK
 
-Net   "io_psram_data0"    Loc = "IO_WC_A5"; # PSRAM DATA0
-Net   "io_psram_data1"    Loc = "IO_WC_B5"; # PSRAM DATA1
-Net   "io_psram_data2"    Loc = "IO_WC_A6"; # PSRAM DATA2
-Net   "io_psram_data3"    Loc = "IO_WC_B6"; # PSRAM DATA3
-Net   "io_psram_data4"    Loc = "IO_WC_A7"; # PSRAM DATA4
-Net   "io_psram_data5"    Loc = "IO_WC_B7"; # PSRAM DATA5
-Net   "io_psram_data6"    Loc = "IO_WC_A8"; # PSRAM DATA6
-Net   "io_psram_data7"    Loc = "IO_WC_B8"; # PSRAM DATA7
+Pin_inout   "io_psram_data0"    Loc = "IO_WC_A5"; 
+Pin_inout   "io_psram_data1"    Loc = "IO_WC_B5"; 
+Pin_inout   "io_psram_data2"    Loc = "IO_WC_A6"; 
+Pin_inout   "io_psram_data3"    Loc = "IO_WC_B6"; 
+Pin_inout   "io_psram_data4"    Loc = "IO_WC_A7"; 
+Pin_inout   "io_psram_data5"    Loc = "IO_WC_B7";
+Pin_inout   "io_psram_data6"    Loc = "IO_WC_A8"; 
+Pin_inout   "io_psram_data7"    Loc = "IO_WC_B8"; 
 
 # For testing via oscilloscope only
 #Net "o_clkRAM"    Loc="IO_NA_A0"; # 100 Mhz clock for o_clkRAM

@@ -60,7 +60,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   reg [7:0] dataRead;
   wire [3:0] debugValue;
   reg [3:0] debug;
-  reg [24:0] looper;
+  reg [25:0] looper;
   wire [3:0] deb;
   
   reg [7:0] debug_mem_state;
@@ -118,72 +118,73 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_blue(o_blue),
     .debugValue(debug) // testing only
   );
-  
+  // Connect the new clk to the global routing resources to ensure that all
+  // modules get the signal (nearly...) at the same time
+  // CC_BUFG pll_clkPhi0 (.I(clkPhi0), .O(clkPhi01));
+ 
   assign dataIn=o_dataReady==1 ? dataRead : 1'bZ;
 
   cpu U7(.clk(clkPhi0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
-
-  always@(posedge o_dataReady)
-  begin
-    if (o_dataReady) begin
-      if (dataRead==223) begin
-        dataAck=1;
-        //debug=blue;
-      end
-      else if (dataRead!=20) begin
-        //debug=gray;
-      end
-    end
-  end
-
+ 
   always @(posedge clkPhi0 or negedge reset)
   begin
     if (!reset) begin
-      looper=0;
-      //memCtrlCE=0;
-      stop=0;
+      looper<=0;
+      memCtrlCE<=0;
+      stop<=0;
+      debug<=black;
+      addrBusMemCtrl<=0;
+      bank<=0;
+      memCtrlCE<=0;
+      dataToWrite<=0;
+      writeToRam<=0;
     end
     else begin
+      /*
+      if (o_dataReady==1) begin
+        if (dataRead==121) begin
+          dataAck<=1;
+          debug<=green;
+          stop<=1;
+        end
+      end */
       if (stop==1) begin
       end
       else if (stop==0) begin
-        if (looper<=1300000) begin
-          //debug=green;
+        if (looper<=100000) begin
+          debug<=navy;
         end
-        else if (looper>2000000 && looper<=3000000) begin
-          //debug=yellow;
+        else if (looper>100000 && looper<=200000) begin
+          debug<=yellow;
         end
-        else if (looper>3000000 && looper<=4000000) begin
-          //debug=blue;  
+        else if (looper>200000 && looper<=300000) begin
+          debug<=blue;  
         end
-        else if (looper>4000000 && looper<=5000000) begin
+        else if (looper>300000 && looper<=400000) begin
+          debug<=red;  
+          /*
           if (looper==4000001) begin
-            addrBusMemCtrl=49152;
-            bank=0;
-            dataToWrite=121;
-            writeToRam=1;
-            //memCtrlCE=1;
+            addrBusMemCtrl<=49152;
+            bank<=0;
+            dataToWrite<=122;
+            writeToRam<=1;
+            memCtrlCE<=1;
           end
           if (looper==4000002) begin
             if (busy==0) begin
-              addrBusMemCtrl=49152;
-              bank=0;
-              dataToWrite=0;
-              writeToRam=0;
-              //memCtrlCE=1;
+              addrBusMemCtrl<=49152;
+              bank<=0;
+              dataToWrite<=0;
+              writeToRam<=0;
+              memCtrlCE<=1;
             end
-          end
-          if (looper==4000003) begin
-            if (dataIn==20) begin
-              debug=red;
-              stop=1;
-            end
-          end
+          end*/
         end
-        if (looper>5000000) begin
-          looper=0;
+        looper<=looper+1;
+        if (looper>500000)
+        begin
+          looper<=0;
         end
-        looper++;
       end
     end
   end  

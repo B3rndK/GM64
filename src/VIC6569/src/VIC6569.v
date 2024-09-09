@@ -31,12 +31,7 @@ module VIC6569(input clk,
   // Creating Phi0 clock for CPU by dividing clkDot by 
   reg [4:0] cntPhi0;
   
-  reg clkPhi;
-  assign clkPhi0=clkPhi;
-
-  // Connect the new clk to the global routing resources to ensure that all
-  // modules get the signal (nearly...) at the same time
-  // CC_BUFG pll_clkPhi0 (.I(clkPhi), .O(clkPhi0));
+  assign clkPhi0=cntPhi0>7;
 
   syncGen sync_gen(
     .clk(clk),
@@ -89,15 +84,13 @@ module VIC6569(input clk,
   begin
     if (reset) begin
       cntPhi0<=0;
-      clkPhi<=0;
     end 
     else begin
-      cntPhi0<=cntPhi0+1;
       if (cntPhi0==16) begin
         cntPhi0<=0;
-        clkPhi<=0;
       end
-      else clkPhi<=(cntPhi0>7);
+      else cntPhi0<=cntPhi0+1;
+
     end
   end
 endmodule
