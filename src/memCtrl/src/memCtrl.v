@@ -77,12 +77,13 @@ typedef enum bit[7:0] {
   SPIQuadRead=8'heb
 } QPICommands;
 
-module memCtrl( input            clk,
-                input            reset,
+module memCtrl( input wire clk,
+                input wire reset,
                 inout wire CE,    // 1-enable
-                input            write, // 0-read, 1-write
+                input wire write, // 0-read, 1-write
                 input reg [5:0]  bank,  // bank 0-31, each of 64KB = 2097152 bytes
                 input reg [15:0] addrBus,
+                output wire o_psram_sclk,                
                 input reg [7:0] dataToWrite,
                 output wire [7:0] dataRead,
                 inout wire io_psram_data0,
@@ -147,9 +148,11 @@ module memCtrl( input            clk,
   reg psram_cs;
   assign o_psram_cs=psram_cs;
   shortint shifter;
-     
-  always @(posedge clk or posedge reset) 
-  begin
+ 
+  reg psram_sclk;
+  assign o_psram_sclk=clk==1 ? 1:0;
+
+  always @(posedge clk or posedge reset) begin
     if (reset) begin
       state<=stateReset;
       o_dataReady<=0;
@@ -167,16 +170,12 @@ module memCtrl( input            clk,
       dataU9[2]<=1'bZ;
       dataU9[3]<=1'bZ;
     end
-    else begin
-      if (state==stateReset) begin
-        delayCounter<=initDelayInClkCyles;
+    else case (state)
+
+      stateReset: begin
         state<=stateInit_1;
       end
-    end
-  end
- 
-  always @(posedge clk) begin
-    case (state)
+
       stateInit_1: begin
         delayCounter--;
         if (delayCounter==0) begin
@@ -266,214 +265,184 @@ module memCtrl( input            clk,
         end
         else isBusy<=0;
       end
-      
+
+      stateRead_SendReadCmd_1: dataU7[0]<=SPIQuadRead[6];
+      stateRead_SendReadCmd_2: dataU7[0]<=SPIQuadRead[5];
+      stateRead_SendReadCmd_3: dataU7[0]<=SPIQuadRead[4];
+      stateRead_SendReadCmd_4: dataU7[0]<=SPIQuadRead[3];
+      stateRead_SendReadCmd_5: dataU7[0]<=SPIQuadRead[2];
+      stateRead_SendReadCmd_6: dataU7[0]<=SPIQuadRead[1];
+      stateRead_SendReadCmd_7: dataU7[0]<=SPIQuadRead[0];
+
       default:
-        ;
-    endcase
-  end
+        if (state>=stateRead_SendReadCmd_1 && state<=stateRead_SendReadCmd_7) begin
+          case (state)
+            stateRead_SendReadCmd_1: dataU7[0]<=SPIQuadRead[6];
+            stateRead_SendReadCmd_2: dataU7[0]<=SPIQuadRead[5];
+            stateRead_SendReadCmd_3: dataU7[0]<=SPIQuadRead[4];
+            stateRead_SendReadCmd_4: dataU7[0]<=SPIQuadRead[3];
+            stateRead_SendReadCmd_5: dataU7[0]<=SPIQuadRead[2];
+            stateRead_SendReadCmd_6: dataU7[0]<=SPIQuadRead[1];
+            stateRead_SendReadCmd_7: dataU7[0]<=SPIQuadRead[0];
+          endcase
+          state++;
+        end 
+        else if (state>=stateRead_SendAddr23_20 && state<=stateRead_SendAddr3_0) begin
+          case (state)
+            stateRead_SendAddr23_20: begin
+              dataU7[0]<=address[20];
+              dataU7[1]<=address[21];
+              dataU7[2]<=address[22];
+              dataU7[3]<=address[23];
+            end
 
+            stateRead_SendAddr19_16: begin
+              dataU7[0]<=address[16];
+              dataU7[1]<=address[17];
+              dataU7[2]<=address[18];
+              dataU7[3]<=address[19];
+            end
 
-  // SPI Quad Read...
-  always @(posedge clk) begin
-    if (state>=stateRead_SendReadCmd_1 && state<=stateRead_SendReadCmd_7) begin
-      case (state)
-        stateRead_SendReadCmd_1: dataU7[0]<=SPIQuadRead[6];
-        stateRead_SendReadCmd_2: dataU7[0]<=SPIQuadRead[5];
-        stateRead_SendReadCmd_3: dataU7[0]<=SPIQuadRead[4];
-        stateRead_SendReadCmd_4: dataU7[0]<=SPIQuadRead[3];
-        stateRead_SendReadCmd_5: dataU7[0]<=SPIQuadRead[2];
-        stateRead_SendReadCmd_6: dataU7[0]<=SPIQuadRead[1];
-        stateRead_SendReadCmd_7: dataU7[0]<=SPIQuadRead[0];
-      endcase
-      state++;
-    end
-  end
+            stateRead_SendAddr15_12: begin
+              dataU7[0]<=address[12];
+              dataU7[1]<=address[13];
+              dataU7[2]<=address[14];
+              dataU7[3]<=address[15];
+            end
 
-// Fall through, send 24-bit address quad packed.
-  always @(posedge clk) begin
-    if (state>=stateRead_SendAddr23_20 && state<=stateRead_SendAddr3_0) begin
-      case (state)
-        stateRead_SendAddr23_20: begin
-          dataU7[0]<=address[20];
-          dataU7[1]<=address[21];
-          dataU7[2]<=address[22];
-          dataU7[3]<=address[23];
-        end
+            stateRead_SendAddr11_8: begin
+              dataU7[0]<=address[8];
+              dataU7[1]<=address[9];
+              dataU7[2]<=address[10];
+              dataU7[3]<=address[11];
+            end
 
-        stateRead_SendAddr19_16: begin
-          dataU7[0]<=address[16];
-          dataU7[1]<=address[17];
-          dataU7[2]<=address[18];
-          dataU7[3]<=address[19];
-        end
+            stateRead_SendAddr7_4: begin
+              dataU7[0]<=address[4];
+              dataU7[1]<=address[5];
+              dataU7[2]<=address[6];
+              dataU7[3]<=address[7];
+            end
 
-        stateRead_SendAddr15_12: begin
-          dataU7[0]<=address[12];
-          dataU7[1]<=address[13];
-          dataU7[2]<=address[14];
-          dataU7[3]<=address[15];
-        end
-
-        stateRead_SendAddr11_8: begin
-          dataU7[0]<=address[8];
-          dataU7[1]<=address[9];
-          dataU7[2]<=address[10];
-          dataU7[3]<=address[11];
-        end
-
-        stateRead_SendAddr7_4: begin
-          dataU7[0]<=address[4];
-          dataU7[1]<=address[5];
-          dataU7[2]<=address[6];
-          dataU7[3]<=address[7];
-        end
-
-        stateRead_SendAddr3_0: begin
-          dataU7[0]<=address[0];
-          dataU7[1]<=address[1];
-          dataU7[2]<=address[2];
-          dataU7[3]<=address[3];
-        end
-      endcase
-      state++;
-    end
-  end
-
-  // WaitCycle by state
-  always @(posedge clk) begin
-    if (state>=stateRead_WaitCycle_1 && state<=stateRead_WaitCycle_7) begin
-      state++;
-    end
-  end
-
-
-  // Fall through, send 8-bit data quad packed.
-  always @(posedge clk) begin
-    if (state>=stateRead7_4 && state<=stateRead3_0) begin
-      case (state)
-        stateRead7_4: begin
-          byteToRead[4]<=dataU7[0];
-          byteToRead[5]<=dataU7[1];
-          byteToRead[6]<=dataU7[2];
-          byteToRead[7]<=dataU7[3];
-        end
-
-        stateRead3_0: begin
-          byteToRead[0]<=dataU7[0];
-          byteToRead[1]<=dataU7[1];
-          byteToRead[2]<=dataU7[2];
-          byteToRead[3]<=dataU7[3];
-          /* if (byteToSendCounter>1) state-=2;
-          else psram_cs=HIGH;*/
-          psram_cs<=HIGH;
-          state<=stateIdle;
-          isBusy<=0;
-          o_dataReady<=1;
-        end
-      endcase
-      //byteToSendCounter--;
-      if (state!=stateIdle) state++;
-    end
-  end
-
-  // SPI Quad Write
-  // We have 24-bit address in address, 8-bit to write in byteToWrite
-  always @(posedge clk) begin
-    if (state>=stateWrite_SendWriteCmd_1 && state<=stateWrite_SendWriteCmd_7) begin
-      case (state)
-        stateWrite_SendWriteCmd_1: dataU7[0]<=SPIQuadWrite[6];
-        stateWrite_SendWriteCmd_2: dataU7[0]<=SPIQuadWrite[5];
-        stateWrite_SendWriteCmd_3: dataU7[0]<=SPIQuadWrite[4];
-        stateWrite_SendWriteCmd_4: dataU7[0]<=SPIQuadWrite[3];
-        stateWrite_SendWriteCmd_5: dataU7[0]<=SPIQuadWrite[2];
-        stateWrite_SendWriteCmd_6: dataU7[0]<=SPIQuadWrite[1];
-        stateWrite_SendWriteCmd_7: dataU7[0]<=SPIQuadWrite[0];
-      endcase
-      state++;
-    end
-  end
-
-  // Fall through, send 24-bit address quad packed.
-  always @(posedge clk) begin
-    if (state>=stateWrite_SendAddr23_20 && state<=stateWrite_SendAddr3_0) begin
-      case (state)
-        stateWrite_SendAddr23_20: begin
-          dataU7[0]<=address[20];
-          dataU7[1]<=address[21];
-          dataU7[2]<=address[22];
-          dataU7[3]<=address[23];
-        end
-
-        stateWrite_SendAddr19_16: begin
-          dataU7[0]<=address[16];
-          dataU7[1]<=address[17];
-          dataU7[2]<=address[18];
-          dataU7[3]<=address[19];
-        end
-
-        stateWrite_SendAddr15_12: begin
-          dataU7[0]<=address[12];
-          dataU7[1]<=address[13];
-          dataU7[2]<=address[14];
-          dataU7[3]<=address[15];
-        end
-
-        stateWrite_SendAddr11_8: begin
-          dataU7[0]<=address[8];
-          dataU7[1]<=address[9];
-          dataU7[2]<=address[10];
-          dataU7[3]<=address[11];
-        end
-
-        stateWrite_SendAddr7_4: begin
-          dataU7[0]<=address[4];
-          dataU7[1]<=address[5];
-          dataU7[2]<=address[6];
-          dataU7[3]<=address[7];
-        end
-
-        stateWrite_SendAddr3_0: begin
-          dataU7[0]<=address[0];
-          dataU7[1]<=address[1];
-          dataU7[2]<=address[2];
-          dataU7[3]<=address[3];
-        end
-      endcase
-      state++;
-    end
-  end
-
-  // Fall through, send 8-bit data quad packed.
-  always @(posedge clk) begin
-    if (state>=stateWrite_SendData7_4 && state<=stateWrite_SendData3_0) begin
-      case (state)
-        stateWrite_SendData7_4: begin
-          dataU7[0]<=byteToWrite[4];
-          dataU7[1]<=byteToWrite[5];
-          dataU7[2]<=byteToWrite[6];
-          dataU7[3]<=byteToWrite[7];
+            stateRead_SendAddr3_0: begin
+              dataU7[0]<=address[0];
+              dataU7[1]<=address[1];
+              dataU7[2]<=address[2];
+              dataU7[3]<=address[3];
+            end
+          endcase
           state++;
         end
+        else if (state>=stateRead7_4 && state<=stateRead3_0) begin
+          case (state)
+            stateRead7_4: begin
+              byteToRead[4]<=dataU7[0];
+              byteToRead[5]<=dataU7[1];
+              byteToRead[6]<=dataU7[2];
+              byteToRead[7]<=dataU7[3];
+            end
 
-        stateWrite_SendData3_0: begin
-          dataU7[0]<=byteToWrite[0];
-          dataU7[1]<=byteToWrite[1];
-          dataU7[2]<=byteToWrite[2];
-          dataU7[3]<=byteToWrite[3];
-          /* if (byteToSendCounter>1) state-=2;
-          else psram_cs=HIGH;*/
-          psram_cs<=HIGH;
-          state<=stateIdle;
-          memCtrlCE<=0;
-          debug<=3;
-          isBusy<=0;
+            stateRead3_0: begin
+              byteToRead[0]<=dataU7[0];
+              byteToRead[1]<=dataU7[1];
+              byteToRead[2]<=dataU7[2];
+              byteToRead[3]<=dataU7[3];
+              psram_cs<=HIGH;
+              state<=stateIdle;
+              isBusy<=0;
+              o_dataReady<=1;
+            end
+          endcase
+          if (state!=stateIdle) state++;
+        end
+        else if (state>=stateWrite_SendWriteCmd_1 && state<=stateWrite_SendWriteCmd_7) begin
+          case (state)
+            stateWrite_SendWriteCmd_1: dataU7[0]<=SPIQuadWrite[6];
+            stateWrite_SendWriteCmd_2: dataU7[0]<=SPIQuadWrite[5];
+            stateWrite_SendWriteCmd_3: dataU7[0]<=SPIQuadWrite[4];
+            stateWrite_SendWriteCmd_4: dataU7[0]<=SPIQuadWrite[3];
+            stateWrite_SendWriteCmd_5: dataU7[0]<=SPIQuadWrite[2];
+            stateWrite_SendWriteCmd_6: dataU7[0]<=SPIQuadWrite[1];
+            stateWrite_SendWriteCmd_7: dataU7[0]<=SPIQuadWrite[0];
+          endcase
+          state++;
+        end
+        else if (state>=stateWrite_SendAddr23_20 && state<=stateWrite_SendAddr3_0) begin
+          case (state)
+            stateWrite_SendAddr23_20: begin
+              dataU7[0]<=address[20];
+              dataU7[1]<=address[21];
+              dataU7[2]<=address[22];
+              dataU7[3]<=address[23];
+            end
+
+            stateWrite_SendAddr19_16: begin
+              dataU7[0]<=address[16];
+              dataU7[1]<=address[17];
+              dataU7[2]<=address[18];
+              dataU7[3]<=address[19];
+            end
+
+            stateWrite_SendAddr15_12: begin
+              dataU7[0]<=address[12];
+              dataU7[1]<=address[13];
+              dataU7[2]<=address[14];
+              dataU7[3]<=address[15];
+            end
+
+            stateWrite_SendAddr11_8: begin
+              dataU7[0]<=address[8];
+              dataU7[1]<=address[9];
+              dataU7[2]<=address[10];
+              dataU7[3]<=address[11];
+            end
+
+            stateWrite_SendAddr7_4: begin
+              dataU7[0]<=address[4];
+              dataU7[1]<=address[5];
+              dataU7[2]<=address[6];
+              dataU7[3]<=address[7];
+            end
+
+            stateWrite_SendAddr3_0: begin
+              dataU7[0]<=address[0];
+              dataU7[1]<=address[1];
+              dataU7[2]<=address[2];
+              dataU7[3]<=address[3];
+            end
+          endcase
+          state++;
+        end
+        else if (state>=stateWrite_SendData7_4 && state<=stateWrite_SendData3_0) begin
+          case (state)
+            stateWrite_SendData7_4: begin
+              dataU7[0]<=byteToWrite[4];
+              dataU7[1]<=byteToWrite[5];
+              dataU7[2]<=byteToWrite[6];
+              dataU7[3]<=byteToWrite[7];
+              state++;
+            end
+
+            stateWrite_SendData3_0: begin
+              dataU7[0]<=byteToWrite[0];
+              dataU7[1]<=byteToWrite[1];
+              dataU7[2]<=byteToWrite[2];
+              dataU7[3]<=byteToWrite[3];
+              /* if (byteToSendCounter>1) state-=2;
+              else psram_cs=HIGH;*/
+              psram_cs<=HIGH;
+              state<=stateIdle;
+              memCtrlCE<=0;
+              debug<=3;
+              isBusy<=0;
+            end
+          endcase
+        end
+        else if (state>=stateRead_WaitCycle_1 && state<=stateRead_WaitCycle_7) begin
+          state++;
         end
       endcase
-      //byteToSendCounter--;
-    end
   end
-
-
 endmodule
 
 `endif
