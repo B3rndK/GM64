@@ -151,16 +151,16 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       if (stop==1) begin
       end
       else if (stop==0) begin
-        if (looper<=100000) begin
+        if (looper<=500) begin
           debug<=navy;
         end
-        else if (looper>100000 && looper<=200000) begin
+        else if (looper>500 && looper<=1000) begin
           debug<=yellow;
         end
-        else if (looper>200000 && looper<=300000) begin
+        else if (looper>1000 && looper<=1500) begin
           debug<=blue;  
         end
-        else if (looper>300000 && looper<=400000) begin
+        else if (looper>1500 && looper<=2000) begin
           debug<=red;  
           /*
           if (looper==4000001) begin
@@ -181,7 +181,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           end*/
         end
         looper<=looper+1;
-        if (looper>500000)
+        if (looper>2000)
         begin
           looper<=0;
         end
