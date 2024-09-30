@@ -17,7 +17,7 @@ module VIC6569(input clk,
                output [3:0] o_red, 
                output [3:0] o_green, 
                output [3:0] o_blue,
-               input reg [3:0] debugValue);
+               input reg [3:0] debugVIC);
                
 
   reg [3:0] red;
@@ -33,6 +33,11 @@ module VIC6569(input clk,
   
   assign clkPhi0=cntPhi0>7;
 
+  assign  o_red = (display_on) ? red : 0;
+  assign  o_green = (display_on) ? green : 0;
+  assign  o_blue = (display_on) ? blue  : 0;
+
+
   syncGen sync_gen(
     .clk(clk),
     .reset(reset),
@@ -46,12 +51,12 @@ module VIC6569(input clk,
   always @(posedge clk or posedge reset)
   begin
     if (reset) begin
-      red<=0;
-      green<=0;       
-      blue<=0;       
+      red<=15;
+      green<=15;       
+      blue<=15;       
     end 
     else begin
-      case (debugValue)
+      case (debugVIC)
         4'b0000 : begin red<=0; green<=0; blue<=0; end
         4'b0001 : begin red<=15;green<=0;blue<=0; end
         4'b0010 : begin red<=0;green<=15;blue<=0; end
@@ -74,10 +79,6 @@ module VIC6569(input clk,
 
     end
   end
-
-  assign  o_red = (display_on) ? red : 0;
-  assign  o_green = (display_on) ? green : 0;
-  assign  o_blue = (display_on) ? blue  : 0;
 
   // The VIC-II generates the CPU clk (phi0) by dividing the clkDot by 8.
   always @(posedge clkDot or posedge reset)
