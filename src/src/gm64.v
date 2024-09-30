@@ -28,7 +28,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             input fpga_but1, 
             output o_hsync, 
             output o_vsync, 
-            output o_psram_cs,
+            output wire o_psram_cs,
             output wire o_psram_sclk,
             inout  wire io_psram_data0,
             inout  wire io_psram_data1,
@@ -44,7 +44,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             );
 
   
-  reg clkPhi0;
+  wire clkPhi0;
  
   reg [15:0] addrBus; // out, address
   reg [15:0] addrBusMemCtrl; // out, address
@@ -55,24 +55,32 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   wire irq=0;
   wire rdy=1;
   wire nmi=0;
-  reg  writeToRam;
+  wire  writeToRam=0;
+  reg doWrite=0;
   reg [7:0] dataToWrite;
   reg [7:0] dataRead;
-  wire [3:0] debugValue;
-  reg [3:0] debug;
-  reg [25:0] looper;
+  reg [31:0] looper;
   wire [3:0] deb;
   
+  assign writeToRam=doWrite;
+
   reg [7:0] debug_mem_state;
-  reg busy;
-  reg o_dataReady;
+  wire busy;
+  wire o_myDataReady;
   reg dataAck;
-  reg memCtrlCE; // CE for memory controller    
+  wire memCtrlCE; // CE for memory controller    
   reg stop;
   reg fpgaStart;  
   reg clkDot, clkVideo;
   reg clkRAM;
-  
+  reg CE;
+
+  Color deee;
+
+  wire o_dataReady;
+  assign o_myDataReady=o_dataReady;
+
+  assign memCtrlCE=CE;
 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
@@ -102,8 +110,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data4(io_psram_data6),
     .io_psram_data5(io_psram_data7),
     .o_psram_cs(o_psram_cs),
-    .o_dataReady(o_dataReady),
-    .debug(debug_mem_state)
+    .o_dataReady(o_dataReady)
     );
 
   VIC6569 U19 (
@@ -116,7 +123,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_red(o_red),
     .o_green(o_green),
     .o_blue(o_blue),
-    .debugValue(debug) // testing only
+    .debugVIC(debugVIC) // testing only
   );
   // Connect the new clk to the global routing resources to ensure that all
   // modules get the signal (nearly...) at the same time
@@ -126,64 +133,72 @@ module gm64(input clk0, // 10Mhz coming from FPGA
 
   cpu U7(.clk(clkPhi0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
  
-  always @(posedge clkPhi0 or negedge reset)
+  reg [3:0] debugVIC;
+
+  always@(posedge clkRAM)
   begin
+    if (o_myDataReady==0) begin
+      stop<=1;
+      debugVIC<=green;
+    end
+    else if (o_myDataReady==1) begin
+      stop<=1;
+      debugVIC<=gray;
+    end
+    else debugVIC<=red;
+  end
+
+  /*
+  always @(posedge clkPhi0 or negedge reset) begin
     if (!reset) begin
-      looper<=0;
-      memCtrlCE<=0;
+      looper=0;
+      debug<=blue;
       stop<=0;
-      debug<=black;
+      CE<=0;
       addrBusMemCtrl<=0;
       bank<=0;
-      memCtrlCE<=0;
       dataToWrite<=0;
-      writeToRam<=0;
+      doWrite<=0;
     end
     else begin
       if (o_dataReady==1) begin
-        if (dataRead==121) begin
-          dataAck<=1;
-          debug<=green;
-          stop=1;
-        end
-      end 
-      if (stop==0) begin
-        if (looper<=500) begin
+        stop<=1;
+        debug<=green;
+      end
+      else begin
+        if (looper<=5500) begin
           debug<=navy;
         end
-        else if (looper>500 && looper<=1000) begin
+        else if (looper>5500 && looper<=6000) begin
           debug<=yellow;
         end
-        else if (looper>1000 && looper<=1500) begin
+        else if (looper>6000 && looper<=7500) begin
           debug<=blue;  
         end
-        else if (looper>1500 && looper<=2000) begin
+        else if (looper>7500 && looper<=8000) begin
           debug<=red;  
-          if (looper==1510) begin
+          if (looper==7591) begin
             addrBusMemCtrl<=49152;
             bank<=0;
             dataToWrite<=121;
-            writeToRam<=1;
-            memCtrlCE<=1;
+            doWrite<=1;
+            CE<=1;
           end
-          if (looper==1511) begin
+          if (looper==7593) begin
             if (busy==0) begin
               addrBusMemCtrl<=49152;
               bank<=0;
               dataToWrite<=0;
-              writeToRam<=0;
-              memCtrlCE<=1;
+              doWrite<=0;
+              CE<=1;
             end
           end
         end
-        looper<=looper+1;
-        if (looper>2000)
-        begin
-          looper<=0;
-        end
+        looper++;
+        if (looper>8000) looper=0;
       end
     end
-  end  
+  end  */
 endmodule  
 
 /*
