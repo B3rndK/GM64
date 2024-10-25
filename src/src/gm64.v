@@ -95,12 +95,16 @@ module gm64(input clk0, // 10Mhz coming from FPGA
                .reset (!reset) // low active
               );
   
-  memCtrl U13_U25(.clk(clkRAM), 
-    .reset(reset), .CE(memCtrlCE), .write(writeToRam), .bank(bank), .addrBus(addrBusMemCtrl), 
+  memCtrl U13_U25(.clkPhi0(clkPhi0), 
+    .clkRAM(clkRAM), 
+    .reset(reset), 
+    .CE(memCtrlCE), 
+    .write(writeToRam), 
+    .bank(bank), 
+    .addrBus(addrBusMemCtrl), 
     .o_psram_sclk(o_psram_sclk),
     .dataToWrite(dataToWrite), 
     .dataRead(dataRead), 
-    .isBusy(busy),
     .io_psram_data0(io_psram_data0),
     .io_psram_data1(io_psram_data1),
     .io_psram_data2(io_psram_data2),
@@ -110,6 +114,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data4(io_psram_data6),
     .io_psram_data5(io_psram_data7),
     .o_psram_cs(o_psram_cs),
+    .o_busy(busy),
     .o_dataReady(o_dataReady)
     );
 
