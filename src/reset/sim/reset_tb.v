@@ -10,7 +10,7 @@ module reset_tb ();
   reg  reset;
   reg fpga_but1=1;
 
-reset U1 (.clk (clk), .fpga_but1 (fpga_but1), .fpga_start(fpga_start), .reset(reset));
+reset U1 (.clk (clk), .fpga_but1 (fpga_but1), .fpgaStart(fpga_start), .reset(reset));
 
 initial begin
   clk = 1'b0;
