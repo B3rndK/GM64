@@ -138,10 +138,10 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
   parameter LOW=1'b0;
   parameter HIGH=1'b1;
  
-  parameter initDelayInClkCyles=15000; // 150us @100Mhz
-  reg [15:0] delayCounter;
+  parameter initDelayInClkCyles=7500; // 150us @100Mhz/2
+  integer delayCounter;
   
-  StateMachine state, nextState;
+  StateMachine state=stateRead_SendAddr3_0, nextState;
     
   reg [7:0] qpiCmd;
 
@@ -183,56 +183,63 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
     else state<=nextState;
   end
 
+  always @(negedge clkRAM) begin
+
+  end
+
   always @(posedge clkPhi0) begin
     fetchData=0;
-    if (!clkRAM) begin
-      if (CS) begin
-        if (state==stateIdle) begin          
-          fetchData=1;
-          byteToWriteBuffer=dataToWrite;
-          addressBuffer=addrBus<<3;  
-          addressBuffer[23]=bank[4];  
-          addressBuffer[22]=bank[3];
-          addressBuffer[21]=bank[2];
-          addressBuffer[20]=bank[1];
-          addressBuffer[19]=bank[0];  
-          isWrite=write;
-        end
+    if (CS) begin
+      if (state==stateIdle) begin          
+        fetchData=1;
+        byteToWriteBuffer=dataToWrite;
+        addressBuffer=addrBus<<3;  
+        addressBuffer[23]=bank[4];  
+        addressBuffer[22]=bank[3];
+        addressBuffer[21]=bank[2];
+        addressBuffer[20]=bank[1];
+        addressBuffer[19]=bank[0];  
+        isWrite=write;
       end
     end
   end
 
-  always @(state) begin
+  always @(posedge clkRAM) begin
     case (state)
-
       stateReset: begin
         delayCounter=initDelayInClkCyles;
         nextState=stateInit_1;
         psram_cs=HIGH;
-        isBusy=0;
+        isBusy=1;
+        shifter=0;
       end
 
       stateInit_1: begin
-        delayCounter--;
-        if (delayCounter==0) begin
-          nextState=stateInit_2;
-        end
+        if (delayCounter>0) delayCounter--;
+        else nextState=stateInit_2;
       end
 
       stateInit_2: begin // Enable QPI mode
         shifter=7;
+        direction[0]=1;
+        direction[1]=0;
+        direction[2]=0;
+        direction[3]=0;
+        direction[4]=1;
+        direction[5]=0;
+        direction[6]=0;
+        direction[7]=0;
         nextState=stateEnableQPI;
       end
 
       stateEnableQPI: begin // Enable QPI mode
+        psram_cs=LOW;
         qpiCommand=enableQPIMode;
-        direction[0]=1;
-        direction[4]=1;
         if (shifter>=0) begin
           dataU7[0]=qpiCommand[shifter];    
           dataU9[0]=qpiCommand[shifter];
           shifter--;
-        end 
+        end        
         else nextState=stateIdle;
       end
 

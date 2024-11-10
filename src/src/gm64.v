@@ -98,7 +98,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   memCtrl U13_U25(.clkPhi0(clkPhi0), 
     .clkRAM(clkRAM), 
     .reset(reset), 
-    .CE(memCtrlCE), 
+    .CS(memCtrlCE), 
     .write(writeToRam), 
     .bank(bank), 
     .addrBus(addrBusMemCtrl), 

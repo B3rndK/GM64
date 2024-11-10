@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024 Bernd Krekeler, Herne, Germany
 
-`timescale 1ns / 1ns
+`timescale 1us / 1us
 
 module memCtrl_tb();
   
@@ -49,12 +49,20 @@ memCtrl U13_U25(
   );
 
 initial begin
-  _cs=0;
-  clkRAM = 1'b1;
+#1 _cs=0;
+  clkRAM = 1'b0;
   clkPhi0 = 1'b0;
   _dataReady = 0;
-  forever #1 clkRAM = ~clkRAM;  
-end  
+  forever begin
+    #1 clkRAM <= ~clkRAM;  
+  end
+end
+
+initial begin
+  forever begin
+    #100 clkPhi0 <= ~clkPhi0;
+  end
+end
 
 initial begin
           // $sdf_annotate("memCtrl_tb.sdf", U1);
@@ -62,18 +70,15 @@ initial begin
           $dumpfile("sim/memCtrl_tb.vcd");
           $dumpvars(0, memCtrl_tb);
 #1        $display("tb: Now resetting controller.");          
-          reset=1;
-#2          
-          // $monitor(U13_U25.delayCounter);
-          assert(U13_U25.o_busy==1);
+          reset=1; 
+#2        assert(U13_U25.o_busy==1); //valid only after clk change.
           assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
-#3
-#10       reset=0;
+#9        reset=0;
           $display ("Reset removed.");
-          assert(U13_U25.state==stateInit_1);
-#15000    assert(U13_U25.state==stateInit_2);
-#2
-          assert(U13_U25.state==stateEnableQPI);
+#2        assert(U13_U25.state==stateInit_1);
+#15001
+#2        assert(U13_U25.state==stateInit_2);
+#4        assert(U13_U25.state==stateEnableQPI);
 #2          
           assert(U13_U25.psram_cs==0); 
           assert(io_psram_data0==enableQPIMode[7]); // SI U7
@@ -116,20 +121,19 @@ initial begin
           assert(io_psram_data4==enableQPIMode[0]); // SI U9
           assert(io_psram_data5==='z); // SO U9
 
-#1        _cs=0;
-          assert(U13_U25.state==stateIdle);
-#10       assert(U13_U25.state==stateIdle);
-
+#2        _cs=0;
+#2        assert(U13_U25.state==stateIdle);
           // Try writing 
-#10       assert(U13_U25.state==stateIdle);
 #1        writeToRam=1;
           bank=0;
           addrBus=49152;
           dataToWrite=8'b10101010;
-          _cs=1;
-#2        assert(busy==1);
+          _cs=1; // 15042us
+#1        assert(U13_U25.state==stateIdle);
+          assert(busy==0);
+#60       assert(U13_U25.state==stateWrite_SendWriteCmd_1);
           assert(o_psram_cs==0);
-          assert(U13_U25.state==stateWrite_SendWriteCmd_1);
+#1        assert(busy==1);
           assert(io_psram_data0==0);
           assert(io_psram_data1==='z); 
           assert(io_psram_data2==='z); 
