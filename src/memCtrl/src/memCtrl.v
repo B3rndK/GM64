@@ -4,6 +4,7 @@
 `ifndef MEMCTRL_H
 `define MEMCTRL_H
 
+`include "../counter/src/counter.v"
 
 /* 8-Bit Memory controller interface using LY68S3200 
    32M (4Mx8) Bits Serial Pseudo-SRAM with SPI and QPI.
@@ -12,63 +13,69 @@
    when in doubt, but this is not (yet) implemented. */
 
 
-typedef enum bit[6:0] {
+typedef enum bit[7:0] {
   stateReset=0,
   stateInit_1=1,
   stateInit_2=2,
-  stateEnableQPI=3,
-  stateIdle=4,
-  stateWrite_Cmd=5,
-  stateWrite_Addr_1=6,
-  stateWrite_Addr_2=7,
-  stateWrite_Addr_3=8,
-  stateWrite_Addr_4=9,
-  stateWrite_Addr_5=10,
-  stateWrite_Addr_6=11,
+  stateEnableQPI_1=3,
+  stateEnableQPI_2=4,
+  stateEnableQPI_3=5,
+  stateEnableQPI_4=6,
+  stateEnableQPI_5=7,
+  stateEnableQPI_6=8,
+  stateEnableQPI_7=9,
+  stateIdle=10,
+  stateWrite_Cmd=11,
+  stateWrite_Addr_1=12,
+  stateWrite_Addr_2=13,
+  stateWrite_Addr_3=14,
+  stateWrite_Addr_4=15,
+  stateWrite_Addr_5=16,
+  stateWrite_Addr_6=17,
 
-  stateWrite_SendWriteCmd_1=12,
-  stateWrite_SendWriteCmd_2=13,
-  stateWrite_SendWriteCmd_3=14,
-  stateWrite_SendWriteCmd_4=15,
-  stateWrite_SendWriteCmd_5=16,
-  stateWrite_SendWriteCmd_6=17,
-  stateWrite_SendWriteCmd_7=18,
+  stateWrite_SendWriteCmd_1=28,
+  stateWrite_SendWriteCmd_2=29,
+  stateWrite_SendWriteCmd_3=30,
+  stateWrite_SendWriteCmd_4=31,
+  stateWrite_SendWriteCmd_5=32,
+  stateWrite_SendWriteCmd_6=33,
+  stateWrite_SendWriteCmd_7=34,
 
-  stateWrite_SendAddr23_20=19,
-  stateWrite_SendAddr19_16=20,
-  stateWrite_SendAddr15_12=21,
-  stateWrite_SendAddr11_8=22,
-  stateWrite_SendAddr7_4=23,
-  stateWrite_SendAddr3_0=24,
+  stateWrite_SendAddr23_20=40,
+  stateWrite_SendAddr19_16=41,
+  stateWrite_SendAddr15_12=42,
+  stateWrite_SendAddr11_8=43,
+  stateWrite_SendAddr7_4=44,
+  stateWrite_SendAddr3_0=45,
 
-  stateWrite_SendData7_4=25,
-  stateWrite_SendData3_0=26,
+  stateWrite_SendData7_4=50,
+  stateWrite_SendData3_0=51,
 
-  stateRead_SendReadCmd_1=27,
-  stateRead_SendReadCmd_2=28,
-  stateRead_SendReadCmd_3=29,
-  stateRead_SendReadCmd_4=30,
-  stateRead_SendReadCmd_5=31,
-  stateRead_SendReadCmd_6=32,
-  stateRead_SendReadCmd_7=33,
+  stateRead_SendReadCmd_1=60,
+  stateRead_SendReadCmd_2=61,
+  stateRead_SendReadCmd_3=62,
+  stateRead_SendReadCmd_4=63,
+  stateRead_SendReadCmd_5=64,
+  stateRead_SendReadCmd_6=65,
+  stateRead_SendReadCmd_7=66,
 
-  stateRead_SendAddr23_20=34,
-  stateRead_SendAddr19_16=35,
-  stateRead_SendAddr15_12=36,
-  stateRead_SendAddr11_8=37,
-  stateRead_SendAddr7_4=38,
-  stateRead_SendAddr3_0=39,
+  stateRead_SendAddr23_20=70,
+  stateRead_SendAddr19_16=71,
+  stateRead_SendAddr15_12=72,
+  stateRead_SendAddr11_8=73,
+  stateRead_SendAddr7_4=74,
+  stateRead_SendAddr3_0=75,
 
-  stateRead_WaitCycle_1=40,
-  stateRead_WaitCycle_2=41,
-  stateRead_WaitCycle_3=42,
-  stateRead_WaitCycle_4=43,
-  stateRead_WaitCycle_5=44,
-  stateRead_WaitCycle_6=45,
-  stateRead_WaitCycle_7=46,
+  stateRead_WaitCycle_1=80,
+  stateRead_WaitCycle_2=81,
+  stateRead_WaitCycle_3=82,
+  stateRead_WaitCycle_4=83,
+  stateRead_WaitCycle_5=84,
+  stateRead_WaitCycle_6=85,
+  stateRead_WaitCycle_7=86,
 
-  stateRead7_4=47,
-  stateRead3_0=48
+  stateRead7_4=90,
+  stateRead3_0=91
 
  
 } StateMachine;
@@ -105,7 +112,7 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
                 output wire o_psram_cs,
                 output wire o_busy, // 1-busy
                 output wire o_dataReady); 
-  
+
   reg [3:0] dataU7;
   reg [3:0] dataBufferU7;
   
@@ -114,6 +121,19 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
 
   reg isWrite;
   reg [7:0] qpiCommand;
+
+reg mycs;
+reg myirq;  
+
+counter U100 (
+  .i_clk(clkPhi0),
+  .i_reset(reset), 
+  .i_cs(mycs),
+  .i_mode(SINGLE_SHOT),
+  .i_value(0),
+  .o_irq(myirq)
+);
+
 
 //  assign  dataRead[0]=dataReady ? byteToRead[0] : 1'bZ;
 //  assign  dataRead[1]=dataReady ? byteToRead[1] : 1'bZ; 
@@ -138,7 +158,7 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
   parameter LOW=1'b0;
   parameter HIGH=1'b1;
  
-  parameter initDelayInClkCyles=7500; // 150us @100Mhz/2
+  parameter initDelayInClkCyles=5000; // 200us
   integer delayCounter;
   
   StateMachine state=stateRead_SendAddr3_0, nextState;
@@ -179,8 +199,13 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
   always @(posedge clkRAM or posedge reset) begin
     if (reset) begin
       state<=stateReset;
+      delayCounter=initDelayInClkCyles;
+      shifter=0;
     end    
-    else state<=nextState;
+    else begin
+      state<=nextState;
+      if (delayCounter>0) delayCounter--;
+    end
   end
 
   always @(negedge clkRAM) begin
@@ -204,19 +229,18 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
     end
   end
 
-  always @(posedge clkRAM) begin
+  //always @(posedge clkRAM) begin
+  always @(state) begin
     case (state)
       stateReset: begin
-        delayCounter=initDelayInClkCyles;
         nextState=stateInit_1;
         psram_cs=HIGH;
         isBusy=1;
-        shifter=0;
+        delayCounter=initDelayInClkCyles;
       end
 
       stateInit_1: begin
-        if (delayCounter>0) delayCounter--;
-        else nextState=stateInit_2;
+        if (delayCounter<=0) nextState=stateInit_2;
       end
 
       stateInit_2: begin // Enable QPI mode
@@ -229,15 +253,23 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
         direction[5]=0;
         direction[6]=0;
         direction[7]=0;
-        nextState=stateEnableQPI;
+        nextState=stateEnableQPI_1;
       end
 
-      stateEnableQPI: begin // Enable QPI mode
+      stateEnableQPI_1, 
+      stateEnableQPI_2,
+      stateEnableQPI_3, 
+      stateEnableQPI_4, 
+      stateEnableQPI_5, 
+      stateEnableQPI_6, 
+      stateEnableQPI_7:
+      begin // Enable QPI mode
         psram_cs=LOW;
         qpiCommand=enableQPIMode;
         if (shifter>=0) begin
           dataU7[0]=qpiCommand[shifter];    
           dataU9[0]=qpiCommand[shifter];
+          nextState++;
           shifter--;
         end        
         else nextState=stateIdle;
@@ -426,7 +458,7 @@ module memCtrl( input wire clkPhi0, // CPU clock (~1 Mhz)
               dataU7[2]=byteToWrite[2];
               dataU7[3]=byteToWrite[3];
               psram_cs=HIGH;
-              nextState=stateIdle;
+              nextState=stateIdle;              
               isBusy=0;
             end
           endcase
