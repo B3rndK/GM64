@@ -78,7 +78,7 @@ initial begin
 #2        assert(U13_U25.state==stateInit_1);
 #15001
 #2        assert(U13_U25.state==stateInit_2);
-#4        assert(U13_U25.state==stateEnableQPI);
+#4        assert(U13_U25.state==stateEnableQPI_1);
 #2          
           assert(U13_U25.psram_cs==0); 
           assert(io_psram_data0==enableQPIMode[7]); // SI U7
@@ -133,7 +133,7 @@ initial begin
           assert(busy==0);
 #60       assert(U13_U25.state==stateWrite_SendWriteCmd_1);
           assert(o_psram_cs==0);
-#1        assert(busy==1);
+#2        assert(busy==1);
           assert(io_psram_data0==0);
           assert(io_psram_data1==='z); 
           assert(io_psram_data2==='z); 
@@ -150,6 +150,7 @@ initial begin
           assert(io_psram_data0==0);
 #2        assert(U13_U25.state==stateWrite_SendWriteCmd_7);
           assert(io_psram_data0==0);
+#2        assert(U13_U25.state==stateWrite_SendAddr23_20);
 #2        assert(U13_U25.state==stateWrite_SendAddr19_16);
 #2        assert(U13_U25.state==stateWrite_SendAddr15_12);
 #2        assert(U13_U25.state==stateWrite_SendAddr11_8);
@@ -159,7 +160,7 @@ initial begin
           assert(busy==1);
 #2        assert(U13_U25.state==stateWrite_SendData3_0);
 #2        assert(o_psram_cs==1);
-          assert(U13_U25.state==stateIdle);
+#2        assert(U13_U25.state==stateIdle);
 #20000    $display("Start read test. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           assert(U13_U25.state==stateIdle);
           assert(busy==0);

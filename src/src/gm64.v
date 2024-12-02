@@ -10,7 +10,9 @@
 `include "../reset/src/reset.v"
 `include "../MOS6502/src/alu.v"
 `include "../MOS6502/src/cpu.v"
+`include "../counter/src/counter.v"
 `include "../memCtrl/src/memCtrl.v"
+
 
 typedef enum bit[3:0] {
   black=0,
