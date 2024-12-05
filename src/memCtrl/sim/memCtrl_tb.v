@@ -6,17 +6,16 @@
 module memCtrl_tb();
   
   reg clkRAM;
-  reg clkPhi0;
   reg reset;
-  reg writeToRam;
-  reg [15:0] addrBus;
+  reg _writeToRam;
+  reg [23:0] addrBus;
   reg [7:0] dataToWrite;
   reg [7:0] dataRead;
   reg busy;
   reg [7:0] debug;
-  reg io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
+  wire io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
       io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
-  reg [5:0] bank;
+  wire o_busy;
   reg  _dataReady;
   reg _cs;
 
@@ -25,12 +24,10 @@ wire dataReady;
 assign dataReady=_dataReady;
 
 memCtrl U13_U25(
-  .clkPhi0(clkPhi0),
-  .clkRAM(clkRAM), 
+  .i_clkRAM(clkRAM), 
   .reset(reset), 
-  .CS(_cs), 
-  .write(writeToRam),
-  .bank(bank),
+  .i_cs(_cs), 
+  .i_write(_writeToRam),
   .addrBus(addrBus), 
   .o_psram_sclk(o_psram_sclk),  
   .dataToWrite(dataToWrite), 
@@ -44,111 +41,102 @@ memCtrl U13_U25(
   .io_psram_data6(io_psram_data6),
   .io_psram_data7(io_psram_data7),
   .o_psram_cs(o_psram_cs),
-  .o_busy(busy),
+  .o_busy(o_busy),
   .o_dataReady(dataReady)
   );
 
 initial begin
-#1 _cs=0;
+#1 _cs=1;
+  reset=1;
   clkRAM = 1'b0;
-  clkPhi0 = 1'b0;
   _dataReady = 0;
   forever begin
     #1 clkRAM <= ~clkRAM;  
   end
 end
 
-initial begin
-  forever begin
-    #100 clkPhi0 <= ~clkPhi0;
-  end
-end
 
 initial begin
           // $sdf_annotate("memCtrl_tb.sdf", U1);
           // $dumpoff; $dumpon;
           $dumpfile("sim/memCtrl_tb.vcd");
           $dumpvars(0, memCtrl_tb);
-#1        $display("tb: Now resetting controller.");          
-          reset=1; 
-#2        assert(U13_U25.o_busy==1); //valid only after clk change.
+#2        $display("tb: Now resetting controller.");          
+          reset=0; 
+#4        assert(U13_U25.o_busy==1); //valid only after clk change.
           assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
-#9        reset=0;
+#2        reset=1;
           $display ("Reset removed.");
+#2        assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles-1);
 #2        assert(U13_U25.state==stateInit_1);
-#15001
-#2        assert(U13_U25.state==stateInit_2);
-#4        assert(U13_U25.state==stateEnableQPI_1);
-#2          
-          assert(U13_U25.psram_cs==0); 
+          assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles-2);
+#29996    assert(U13_U25.delayCounter==1);
           assert(io_psram_data0==enableQPIMode[7]); // SI U7
-          assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data4==enableQPIMode[7]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
+#2        assert(U13_U25.state==stateEnableQPI);
+          assert(U13_U25.psram_cs==0); 
           assert(io_psram_data0==enableQPIMode[6]); // SI U7
-          assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data4==enableQPIMode[6]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
-          assert(io_psram_data0==enableQPIMode[5]); // SI U7
           assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
+#2        assert(io_psram_data0==enableQPIMode[5]); // SI U7
           assert(io_psram_data4==enableQPIMode[5]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
-          assert(io_psram_data0==enableQPIMode[4]); // SI U7
           assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
+#2        assert(io_psram_data0==enableQPIMode[4]); // SI U7
           assert(io_psram_data4==enableQPIMode[4]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
-          assert(io_psram_data0==enableQPIMode[3]); // SI U7
           assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
+#2        assert(io_psram_data0==enableQPIMode[3]); // SI U7
           assert(io_psram_data4==enableQPIMode[3]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
-          assert(io_psram_data0==enableQPIMode[2]); // SI U7
           assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
+#2        assert(io_psram_data0==enableQPIMode[2]); // SI U7
           assert(io_psram_data4==enableQPIMode[2]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
-          assert(io_psram_data0==enableQPIMode[1]); // SI U7
           assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
+#2        assert(io_psram_data0==enableQPIMode[1]); // SI U7
           assert(io_psram_data4==enableQPIMode[1]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-#2
-          assert(io_psram_data0==enableQPIMode[0]); // SI U7
           assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
+#2        assert(io_psram_data0==enableQPIMode[0]); // SI U7
           assert(io_psram_data4==enableQPIMode[0]); // SI U9
-          assert(io_psram_data5==='z); // SO U9
-
-#2        _cs=0;
+          assert(io_psram_data1==='z); // SO U7
+          assert(io_psram_data2==='z); // SO U7
+          assert(io_psram_data3==='z); // SO U7
 #2        assert(U13_U25.state==stateIdle);
+          assert(o_busy==0);
           // Try writing 
-#1        writeToRam=1;
-          bank=0;
+#2        _cs=0; 
+          _writeToRam=1;
           addrBus=49152;
           dataToWrite=8'b10101010;
-          _cs=1; // 15042us
-#1        assert(U13_U25.state==stateIdle);
-          assert(busy==0);
-#60       assert(U13_U25.state==stateWrite_SendWriteCmd_1);
+#2        _cs=1; 
+          assert(o_busy==1);
+          assert(U13_U25.state==stateWrite_SendWriteCmd);
           assert(o_psram_cs==0);
-#2        assert(busy==1);
+#2        assert(o_busy==1);
           assert(io_psram_data0==0);
           assert(io_psram_data1==='z); 
           assert(io_psram_data2==='z); 
           assert(io_psram_data3==='z); 
 #2        assert(U13_U25.state==stateWrite_SendWriteCmd_2);
           assert(io_psram_data0==0);
-#2        assert(U13_U25.state==stateWrite_SendWriteCmd_3);
+#2        assert(U13_U25.state==stateWrite_SendWriteCmd_2);
           assert(io_psram_data0==1);
-#2        assert(U13_U25.state==stateWrite_SendWriteCmd_4);
+#2        assert(U13_U25.state==stateWrite_SendWriteCmd_2);
           assert(io_psram_data0==1);
-#2        assert(U13_U25.state==stateWrite_SendWriteCmd_5);
+#2        assert(U13_U25.state==stateWrite_SendWriteCmd_2);
           assert(io_psram_data0==1);
-#2        assert(U13_U25.state==stateWrite_SendWriteCmd_6);
+#2        assert(U13_U25.state==stateWrite_SendWriteCmd_2);
           assert(io_psram_data0==0);
-#2        assert(U13_U25.state==stateWrite_SendWriteCmd_7);
+#2        assert(U13_U25.state==stateWrite_SendWriteCmd_2);
           assert(io_psram_data0==0);
 #2        assert(U13_U25.state==stateWrite_SendAddr23_20);
 #2        assert(U13_U25.state==stateWrite_SendAddr19_16);
@@ -157,21 +145,18 @@ initial begin
 #2        assert(U13_U25.state==stateWrite_SendAddr7_4);
 #2        assert(U13_U25.state==stateWrite_SendAddr3_0);
 #2        assert(U13_U25.state==stateWrite_SendData7_4);
-          assert(busy==1);
+          assert(o_busy==1);
 #2        assert(U13_U25.state==stateWrite_SendData3_0);
 #2        assert(o_psram_cs==1);
 #2        assert(U13_U25.state==stateIdle);
-#20000    $display("Start read test. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
+#2        $display("Start read test. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           assert(U13_U25.state==stateIdle);
-          assert(busy==0);
-#2
-          writeToRam=0;
-          bank=0;
+          assert(o_busy==0);
+#2        _writeToRam=1;
           addrBus=49152;
           _cs=1;
-      
 #2        assert(o_psram_cs==0);
-          assert(busy==1);
+          assert(o_busy==1);
           assert(U13_U25.state==stateRead_SendReadCmd_1);
 #2        assert(U13_U25.state==stateRead_SendReadCmd_2);
 #2        assert(U13_U25.state==stateRead_SendReadCmd_3);
@@ -198,8 +183,8 @@ initial begin
 #2        assert(U13_U25.state==stateIdle);
           assert(busy==0);
           assert(o_psram_cs==1);          
-#30000  $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
-        $finish(0);
+#2        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
+          $finish(0);
 end
 
 endmodule

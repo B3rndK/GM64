@@ -7,7 +7,7 @@ SRC=~/git/GM64
 ## toolchain
 YOSYS = ~/GateMate/bin/yosys/yosys$(EXE)
 PR    = ~/GateMate/bin/p_r/p_r$(EXE)
-OFL   = ~/git/openFPGALoader/build/openFPGALoader$(EXE)
+OFL   = ~/1git/openFPGALoader/build/openFPGALoader$(EXE)
 OFLFLAGS =-b olimex_gatemateevb
 
 GTKW = /usr/bin/gtkwave
