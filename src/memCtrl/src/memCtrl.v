@@ -14,46 +14,14 @@ typedef enum bit[7:0] {
   stateIdle=10,
   sendQPIWriteCmd=11,
   
-  
-  stateWrite_Addr=12,
-  stateWrite_SendWriteCmd=28,
-  stateWrite_SendWriteCmd_2=29,
+  sendQPIAddress=12,
+  writeData=20,
 
-  stateWrite_SendAddr23_20=40,
-  stateWrite_SendAddr19_16=41,
-  stateWrite_SendAddr15_12=42,
-  stateWrite_SendAddr11_8=43,
-  stateWrite_SendAddr7_4=44,
-  stateWrite_SendAddr3_0=45,
+  sendQPIReadCommand=60,
+  readData=61,
 
-  stateWrite_SendData7_4=50,
-  stateWrite_SendData3_0=51,
+  waitCycle=80,
 
-  stateRead_SendReadCmd_1=60,
-  stateRead_SendReadCmd_2=61,
-  stateRead_SendReadCmd_3=62,
-  stateRead_SendReadCmd_4=63,
-  stateRead_SendReadCmd_5=64,
-  stateRead_SendReadCmd_6=65,
-  stateRead_SendReadCmd_7=66,
-
-  stateRead_SendAddr23_20=70,
-  stateRead_SendAddr19_16=71,
-  stateRead_SendAddr15_12=72,
-  stateRead_SendAddr11_8=73,
-  stateRead_SendAddr7_4=74,
-  stateRead_SendAddr3_0=75,
-
-  stateRead_WaitCycle_1=80,
-  stateRead_WaitCycle_2=81,
-  stateRead_WaitCycle_3=82,
-  stateRead_WaitCycle_4=83,
-  stateRead_WaitCycle_5=84,
-  stateRead_WaitCycle_6=85,
-  stateRead_WaitCycle_7=86,
-
-  stateRead7_4=90,
-  stateRead3_0=91,
   stateXXX=92
  
 } StateMachine;
@@ -154,7 +122,7 @@ reg myirq;
   reg psram_cs;
   assign o_psram_cs= psram_cs;
   
-  reg[2:0] shifter;
+  reg[5:0] shifter;
  
   reg psram_sclk;
   assign o_psram_sclk=i_clkRAM;
@@ -191,21 +159,35 @@ reg myirq;
         else                  next=delayAfterReset;        
       
       sendQPIEnable:      
-        if (shifter==0)       next=stateIdle;
+        if (shifter==8)       next=stateIdle;
         else                  next=sendQPIEnable;
     
       stateIdle: begin
-        next=stateIdle;
         case (action)
           DONOTHING:          next=stateIdle;
           DOWRITE:            next=sendQPIWriteCmd;
           DOREAD:             next=stateIdle;
+          default:            next=stateIdle;
         endcase
       end
       
       sendQPIWriteCmd:
-      if (shifter==0)       next=stateIdle;
-      else                  next=sendQPIWriteCmd;
+        if (shifter==8)         next=sendQPIAddress;
+        else                    next=sendQPIWriteCmd;
+
+      sendQPIAddress:
+        if (shifter==14)
+        begin
+          if (action==DOWRITE)  next=writeData;
+          else                  next=readData;
+        end
+        else
+                                next=sendQPIAddress;
+      readData:
+        ;
+      writeData:
+        ;
+
     endcase
   end
   
@@ -223,12 +205,16 @@ reg myirq;
     end
     else begin
       if (i_cs==0) begin
+        shifter<=0;
         if (i_write) begin
             action<=DOWRITE;
             qpiCommand<=SPIQuadWrite;
+            byteToWrite<=dataToWrite;
         end
-        else action<=DOREAD;
-        byteToWrite<=dataToWrite;
+        else begin
+          action<=DOREAD;
+          qpiCommand<=SPIQuadRead;
+        end
         address<=i_address;
       end
       else
@@ -254,21 +240,78 @@ reg myirq;
           stateIdle: begin
             case (action)
               DOWRITE: begin
+                qpiCommand<=SPIQuadWrite;
                 shifter<=0;           
               end
-              DOREAD,
+              DOREAD: begin
+                qpiCommand<=SPIQuadRead;
+                shifter<=0;                                     
+              end
               DONOTHING: 
                 n_oBusy<=0;
             endcase
           end
 
           sendQPIWriteCmd: begin
-            direction<=8'b00010001; // SI active only
             psram_cs<=LOW;
+            direction<=8'b00010001; // SI active only
             dataU7[0]<=qpiCommand[shifter^7];
             dataU9[0]<=qpiCommand[shifter^7];        
             shifter<=shifter+1;        
           end
+
+          sendQPIAddress: begin
+            psram_cs<=LOW;
+            direction<=8'hFF; // SI active only
+            case (shifter) 
+              9:  begin
+                    dataU7[0]<=address[20];
+                    dataU7[1]<=address[21];
+                    dataU7[2]<=address[22];
+                    dataU7[3]<=address[23];
+                  end
+              10:  begin
+                    dataU7[0]<=address[16];
+                    dataU7[1]<=address[17];
+                    dataU7[2]<=address[18];
+                    dataU7[3]<=address[19];
+                  end
+              11: begin
+                    dataU7[0]<=address[12];
+                    dataU7[1]<=address[13];
+                    dataU7[2]<=address[14];
+                    dataU7[3]<=address[15];
+                  end
+              12: begin
+                    dataU7[0]<=address[8];
+                    dataU7[1]<=address[9];
+                    dataU7[2]<=address[10];
+                    dataU7[3]<=address[11];
+                  end
+              13: begin
+                    dataU7[0]<=address[4];
+                    dataU7[1]<=address[5];
+                    dataU7[2]<=address[6];
+                    dataU7[3]<=address[7];
+                  end
+              14: begin
+                    dataU7[0]<=address[0];
+                    dataU7[1]<=address[1];
+                    dataU7[2]<=address[2];
+                    dataU7[3]<=address[3];
+                    psram_cs<=HIGH;
+                  end
+            endcase
+            shifter<=shifter+1;        
+          end
+
+          writeData: begin
+            psram_cs<=LOW;
+            direction<=8'hff;
+            shifter<=shifter+1;        
+          end
+
+
   /*      
           stateWrite_SendWriteCmd: begin
             

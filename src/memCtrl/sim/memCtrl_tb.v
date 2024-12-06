@@ -116,7 +116,7 @@ initial begin
           // Try writing 
 #2        _cs=0; 
           _writeToRam=1;
-          address=49152;
+          address=16'hAAAA;
           dataToWrite=8'b10101010;
 #2        _cs=1; 
           assert(o_busy==1);
@@ -161,16 +161,13 @@ initial begin
           assert(io_psram_data1==='z); 
           assert(io_psram_data2==='z); 
           assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==stateWrite_SendAddr23_20);
-#2        assert(U13_U25.state==stateWrite_SendAddr19_16);
-#2        assert(U13_U25.state==stateWrite_SendAddr15_12);
-#2        assert(U13_U25.state==stateWrite_SendAddr11_8);
-#2        assert(U13_U25.state==stateWrite_SendAddr7_4);
-#2        assert(U13_U25.state==stateWrite_SendAddr3_0);
-#2        assert(U13_U25.state==stateWrite_SendData7_4);
+#2        assert(U13_U25.state==sendQPIAddress);
           assert(o_busy==1);
-#2        assert(U13_U25.state==stateWrite_SendData3_0);
-#2        assert(o_psram_cs==1);
+#500
+
+
+
+/*
 #2        assert(U13_U25.state==stateIdle);
 #2        $display("Start read test. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           assert(U13_U25.state==stateIdle);
@@ -180,32 +177,12 @@ initial begin
           _cs=1;
 #2        assert(o_psram_cs==0);
           assert(o_busy==1);
-          assert(U13_U25.state==stateRead_SendReadCmd_1);
-#2        assert(U13_U25.state==stateRead_SendReadCmd_2);
-#2        assert(U13_U25.state==stateRead_SendReadCmd_3);
-#2        assert(U13_U25.state==stateRead_SendReadCmd_4);
-#2        assert(U13_U25.state==stateRead_SendReadCmd_5);
-#2        assert(U13_U25.state==stateRead_SendReadCmd_6);
-#2        assert(U13_U25.state==stateRead_SendReadCmd_7);
-
-#2        assert(U13_U25.state==stateRead_SendAddr19_16);
-#2        assert(U13_U25.state==stateRead_SendAddr15_12);
-#2        assert(U13_U25.state==stateRead_SendAddr11_8);
-#2        assert(U13_U25.state==stateRead_SendAddr7_4);
-#2        assert(U13_U25.state==stateRead_SendAddr3_0);
-
-#2        assert(U13_U25.state==stateRead_WaitCycle_1);
-#2        assert(U13_U25.state==stateRead_WaitCycle_2);
-#2        assert(U13_U25.state==stateRead_WaitCycle_3);
-#2        assert(U13_U25.state==stateRead_WaitCycle_4);
-#2        assert(U13_U25.state==stateRead_WaitCycle_5);
-#2        assert(U13_U25.state==stateRead_WaitCycle_6);
-#2        assert(U13_U25.state==stateRead_WaitCycle_7);
-
-#2        assert(U13_U25.state==stateRead3_0);
+          assert(U13_U25.state==sendQPIReadCommand);
+#8        assert(U13_U25.state==readData);
+#2        assert(U13_U25.state==waitCycle);
 #2        assert(U13_U25.state==stateIdle);
           assert(busy==0);
-          assert(o_psram_cs==1);          
+          assert(o_psram_cs==1);   */       
 #2        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset); 
   
           $finish(0);
