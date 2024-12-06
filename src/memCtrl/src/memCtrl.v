@@ -9,13 +9,13 @@
 
 typedef enum bit[7:0] {
   stateReset=0,
-  stateInit_1=1,
-  stateInit_2=2,
-  stateEnableQPI=3,
+  delayAfterReset=1,
+  sendQPIEnable=3,
   stateIdle=10,
-  stateWrite_Cmd=11,
-  stateWrite_Addr=12,
+  sendQPIWriteCmd=11,
   
+  
+  stateWrite_Addr=12,
   stateWrite_SendWriteCmd=28,
   stateWrite_SendWriteCmd_2=29,
 
@@ -53,14 +53,14 @@ typedef enum bit[7:0] {
   stateRead_WaitCycle_7=86,
 
   stateRead7_4=90,
-  stateRead3_0=91
-
+  stateRead3_0=91,
+  stateXXX=92
  
 } StateMachine;
 
 typedef enum reg[7:0] {
-  enableQPIMode=8'b00110101,
-  SPIQuadWrite=8'h38,
+  enableQPIModeCmd=8'b00110101,
+  SPIQuadWrite=8'b00111000,
   SPIQuadRead=8'heb
 } QPICommands;
 
@@ -72,7 +72,8 @@ typedef enum reg  {
 typedef enum bit[1:0]  {
   DONOTHING=0,
   DOREAD=1,
-  DOWRITE=2
+  DOWRITE=2,
+  XXX=3
 } Action;
 
 
@@ -80,7 +81,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                 input wire reset,
                 input wire i_cs,    // 0-enable
                 input wire i_write, // 0-read, 1-write
-                input wire [23:0] addrBus, // 24-bit address
+                input wire [23:0] i_address, // 24-bit address
                 output wire o_psram_sclk,                
                 input wire [7:0] dataToWrite,
                 output wire [7:0] dataRead,
@@ -93,7 +94,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                 inout wire io_psram_data6,
                 inout wire io_psram_data7,            
                 output wire o_psram_cs,
-                output wire o_busy, // 1-busy
+                output wire oBusy, // 1-Busy
                 output wire o_dataReady); 
 
   reg [3:0] dataU7;
@@ -104,6 +105,10 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
 
   reg isWrite;
   reg [7:0] qpiCommand;
+
+  /* Output */
+  reg n_oBusy;
+  assign oBusy=n_oBusy;
 
   Action action;
 
@@ -125,7 +130,7 @@ reg myirq;
   assign o_dataReady=dataReady;
 
   reg [23:0] address;
-  reg [23:0] addressBuffer;
+  
 
 
   // Loops through 3-0 to reuse write state, writing 4x same byte
@@ -137,7 +142,7 @@ reg myirq;
   integer initDelayInClkCyles=15000; // 150us @ 100Mhz
   integer delayCounter;
   
-  StateMachine state, nextState;
+  StateMachine state, next;
     
   reg [7:0] byteToWrite;
   reg [7:0] byteToReadBuffer;
@@ -167,6 +172,166 @@ reg myirq;
   assign io_psram_data6=(direction[6]==1 ? dataU9[2] : 1'bZ);
   assign io_psram_data7=(direction[7]==1 ? dataU9[3] : 1'bZ);
 
+  
+  always_ff @(posedge i_clkRAM or negedge reset) 
+    if (!reset) state<=stateXXX;
+    else state<=next;  
+  
+  // next logic
+  always_comb begin
+    next=stateXXX;
+    case (state)
+
+      stateXXX:               next=stateReset;
+      
+      stateReset:
+                              next=delayAfterReset;
+      delayAfterReset:
+        if (delayCounter==0)  next=sendQPIEnable;
+        else                  next=delayAfterReset;        
+      
+      sendQPIEnable:      
+        if (shifter==0)       next=stateIdle;
+        else                  next=sendQPIEnable;
+    
+      stateIdle: begin
+        next=stateIdle;
+        case (action)
+          DONOTHING:          next=stateIdle;
+          DOWRITE:            next=sendQPIWriteCmd;
+          DOREAD:             next=stateIdle;
+        endcase
+      end
+      
+      sendQPIWriteCmd:
+      if (shifter==0)       next=stateIdle;
+      else                  next=sendQPIWriteCmd;
+    endcase
+  end
+  
+
+  always_ff @(posedge i_clkRAM or negedge reset) begin
+
+    n_oBusy<=1;
+    dataU7<=4'bZ;
+    dataU9<=4'bZ;
+    psram_cs<=HIGH;
+    direction<='0;
+    
+    if (!reset) begin
+      ;
+    end
+    else begin
+      if (i_cs==0) begin
+        if (i_write) begin
+            action<=DOWRITE;
+            qpiCommand<=SPIQuadWrite;
+        end
+        else action<=DOREAD;
+        byteToWrite<=dataToWrite;
+        address<=i_address;
+      end
+      else
+        case (next) 
+          stateReset: begin
+            delayCounter<=initDelayInClkCyles;
+          end
+
+          delayAfterReset: begin 
+            delayCounter<=delayCounter-1;
+            qpiCommand<=enableQPIModeCmd;
+            shifter<=0;
+          end
+
+          sendQPIEnable: begin
+            psram_cs<=LOW;
+            direction<=8'b00010001; // SI active only
+            dataU7[0]<=qpiCommand[shifter^7];
+            dataU9[0]<=qpiCommand[shifter^7];
+            shifter<=shifter+1;        
+          end    
+
+          stateIdle: begin
+            case (action)
+              DOWRITE: begin
+                shifter<=0;           
+              end
+              DOREAD,
+              DONOTHING: 
+                n_oBusy<=0;
+            endcase
+          end
+
+          sendQPIWriteCmd: begin
+            direction<=8'b00010001; // SI active only
+            psram_cs<=LOW;
+            dataU7[0]<=qpiCommand[shifter^7];
+            dataU9[0]<=qpiCommand[shifter^7];        
+            shifter<=shifter+1;        
+          end
+  /*      
+          stateWrite_SendWriteCmd: begin
+            
+            direction[0]<=1;
+            direction[4]<=1;
+            psram_cs<=LOW;
+            dataU7[0]<=qpiCommand[shifter-1];
+            dataU9[0]<=qpiCommand[shifter-1];        
+          end
+
+          // Write 24-bit address
+
+          stateWrite_SendAddr23_20: begin
+            dataU7[0]<=address[20];
+            dataU7[1]<=address[21];
+            dataU7[2]<=address[22];
+            dataU7[3]<=address[23];
+          end
+
+          stateWrite_SendAddr19_16: begin
+            dataU7[0]<=address[16];
+            dataU7[1]<=address[17];
+            dataU7[2]<=address[18];
+            dataU7[3]<=address[19];
+          end
+
+          stateWrite_SendAddr15_12: begin
+            dataU7[0]<=address[12];
+            dataU7[1]<=address[13];
+            dataU7[2]<=address[14];
+            dataU7[3]<=address[15];
+          end
+
+          stateWrite_SendAddr11_8: begin
+            dataU7[0]<=address[8];
+            dataU7[1]<=address[9];
+            dataU7[2]<=address[10];
+            dataU7[3]<=address[11];
+          end
+
+          stateWrite_SendAddr7_4: begin
+            dataU7[0]<=address[4];
+            dataU7[1]<=address[5];
+            dataU7[2]<=address[6];
+            dataU7[3]<=address[7];
+          end
+
+          stateWrite_SendAddr3_0: begin
+            dataU7[0]<=address[0];
+            dataU7[1]<=address[1];
+            dataU7[2]<=address[2];
+            dataU7[3]<=address[3];
+          end
+        */
+        endcase
+    end
+ end
+
+endmodule
+`endif 
+
+
+/*
   always_ff @(posedge i_clkRAM or negedge reset) begin
     if (!reset) begin
       state<=stateReset;
@@ -191,7 +356,7 @@ reg myirq;
         end
       end
       else
-        case (nextState)
+        case (next)
           
           stateReset: begin
           end
@@ -217,12 +382,12 @@ reg myirq;
           end
 
         endcase
-        state<=nextState;
+        state<=next;
       end
   end
 
   always_comb  begin
-    nextState=stateIdle;
+    next=stateXXX;
     dataBufferU7=3'b0;
     dataBufferU9=3'b0;
     qpiCommand=qpiCommand;
@@ -231,53 +396,54 @@ reg myirq;
     case (state)
 
       stateReset: begin
-        nextState=stateInit_1;
+        next=stateInit_1;
       end
 
       stateInit_1: begin
-        if (delayCounter==1) nextState=stateInit_2;
-        else nextState=stateInit_1;
+        if (delayCounter==1) next=stateInit_2;
+        else next=stateInit_1;
       end
 
       stateInit_2: begin 
-        nextState=stateEnableQPI;
+        next=stateEnableQPI;
       end
 
       stateEnableQPI: begin 
         if (shifter>0) begin
-          nextState=stateEnableQPI;  
+          next=stateEnableQPI;  
         end        
        end
 
       stateIdle: begin        
         if (action==DONOTHING) begin
-          nextState=stateWrite_SendWriteCmd;
+          next=stateWrite_SendWriteCmd;
         end          
       end
 
       stateWrite_SendWriteCmd: begin
         if (shifter>0) begin
-          nextState=stateWrite_SendWriteCmd;  
+          next=stateWrite_SendWriteCmd;  
         end        
-        else nextState=stateWrite_SendAddr23_20;
+        else next=stateWrite_SendAddr23_20;
       end
 
       stateWrite_SendAddr23_20: begin
-        nextState=stateRead_SendAddr19_16;
+        next=stateRead_SendAddr19_16;
       end
       stateWrite_SendAddr19_16: begin
-        nextState=stateRead_SendAddr15_12;
+        next=stateRead_SendAddr15_12;
       end
       stateWrite_SendAddr15_12: begin
-        nextState=stateRead_SendAddr11_8;
+        next=stateRead_SendAddr11_8;
       end
       stateWrite_SendAddr11_8: begin
-        nextState=stateRead_SendAddr7_4;
+        next=stateRead_SendAddr7_4;
       end
       stateWrite_SendAddr7_4: begin
-        nextState=stateRead_SendAddr3_0;
+        next=stateRead_SendAddr3_0;
       end
-/*
+      default: next=stateXXX; 
+
       default: begin
         if (state>=stateRead_SendReadCmd_1 && state<=stateRead_SendReadCmd_7) begin
           case (state)
@@ -289,7 +455,7 @@ reg myirq;
             stateRead_SendReadCmd_6: dataU7[0]=SPIQuadRead[1];
             stateRead_SendReadCmd_7: dataU7[0]=SPIQuadRead[0];
           endcase
-          nextState++;
+          next++;
         end 
         else if (state>=stateRead_SendAddr23_20 && state<=stateRead_SendAddr3_0) begin
           case (state)
@@ -335,7 +501,7 @@ reg myirq;
               dataU7[3]=address[3];
             end
           endcase
-          nextState++;
+          next++;
         end
         else if (state>=stateRead7_4 && state<=stateRead3_0) begin
           case (state)
@@ -352,12 +518,12 @@ reg myirq;
               byteToRead[2]=io_psram_data2;
               byteToRead[3]=io_psram_data3;
               psram_cs=HIGH;
-              nextState=stateIdle;
-              isBusy=0;
+              next=stateIdle;
+              n_oBusy=0;
               dataReady=1;
             end
           endcase
-          if (state!=stateIdle) nextState++;
+          if (state!=stateIdle) next++;
         end
         else if (state>=stateWrite_SendWriteCmd_1 && state<=stateWrite_SendWriteCmd_7) begin
           case (state)
@@ -369,7 +535,7 @@ reg myirq;
             stateWrite_SendWriteCmd_6: dataU7[0]=SPIQuadWrite[1];
             stateWrite_SendWriteCmd_7: dataU7[0]=SPIQuadWrite[0];
           endcase
-          nextState++;
+          next++;
         end
         else if (state>=stateWrite_SendAddr23_20 && state<=stateWrite_SendAddr3_0) begin
           case (state)
@@ -415,7 +581,7 @@ reg myirq;
               dataU7[3]=address[3];
             end
           endcase
-          nextState++;
+          next++;
         end
         else if (state>=stateWrite_SendData7_4 && state<=stateWrite_SendData3_0) begin
           case (state)
@@ -424,7 +590,7 @@ reg myirq;
               dataU7[1]=byteToWrite[5];
               dataU7[2]=byteToWrite[6];
               dataU7[3]=byteToWrite[7];
-              nextState++;
+              next++;
             end
 
             stateWrite_SendData3_0: begin
@@ -433,113 +599,18 @@ reg myirq;
               dataU7[2]=byteToWrite[2];
               dataU7[3]=byteToWrite[3];
               psram_cs=HIGH;
-              nextState=stateIdle;              
-              isBusy=0;
+              next=stateIdle;              
+              n_oBusy=0;
             end
           endcase
         end
         else if (state>=stateRead_WaitCycle_1 && state<=stateRead_WaitCycle_7) begin
           direction=READ;
-          nextState++;
+          next++;
         end
       end
-      */
+      
     endcase
-  end
-
-  /* Output */
-  reg isBusy;
-  assign o_busy=isBusy;
-
-  always_ff @(posedge i_clkRAM) begin
-    isBusy<=1;
-    dataU7<=4'bZ;
-    dataU9<=4'bZ;
-    psram_cs<=HIGH;
-
-    case (nextState) 
-      stateReset: begin
-        isBusy<=1;
-        psram_cs<=HIGH;
-      end
-      
-      stateInit_1: begin
-        direction<=8'b0;
-        psram_cs<=HIGH;
-      end    
-
-      stateInit_2: begin
-        psram_cs<=LOW;
-        direction[0]<=1;
-        direction[4]<=1;
-        dataU7[0]<=qpiCommand[7];
-        dataU9[0]<=qpiCommand[7];        
-      end
-      
-      stateEnableQPI: begin
-        psram_cs<=LOW;
-        dataU7[0]<=qpiCommand[shifter-1];
-        dataU9[0]<=qpiCommand[shifter-1];        
-      end
-    
-      stateWrite_SendWriteCmd: begin
-        isBusy<=1;
-        direction[0]<=1;
-        direction[4]<=1;
-        psram_cs<=LOW;
-        dataU7[0]<=qpiCommand[shifter-1];
-        dataU9[0]<=qpiCommand[shifter-1];        
-      end
-      
-      /* Write 24-bit address */
-      stateWrite_SendAddr23_20: begin
-        dataU7[0]<=address[20];
-        dataU7[1]<=address[21];
-        dataU7[2]<=address[22];
-        dataU7[3]<=address[23];
-      end
-
-      stateWrite_SendAddr19_16: begin
-        dataU7[0]<=address[16];
-        dataU7[1]<=address[17];
-        dataU7[2]<=address[18];
-        dataU7[3]<=address[19];
-      end
-
-      stateWrite_SendAddr15_12: begin
-        dataU7[0]<=address[12];
-        dataU7[1]<=address[13];
-        dataU7[2]<=address[14];
-        dataU7[3]<=address[15];
-      end
-
-      stateWrite_SendAddr11_8: begin
-        dataU7[0]<=address[8];
-        dataU7[1]<=address[9];
-        dataU7[2]<=address[10];
-        dataU7[3]<=address[11];
-      end
-
-      stateWrite_SendAddr7_4: begin
-        dataU7[0]<=address[4];
-        dataU7[1]<=address[5];
-        dataU7[2]<=address[6];
-        dataU7[3]<=address[7];
-      end
-
-      stateWrite_SendAddr3_0: begin
-        dataU7[0]<=address[0];
-        dataU7[1]<=address[1];
-        dataU7[2]<=address[2];
-        dataU7[3]<=address[3];
-      end
-      
-      /**/
-      stateIdle: begin
-        psram_cs<=HIGH;
-        isBusy<=0;
-      end
-    endcase
-  end
-endmodule
-`endif
+  end */
+  
+  
