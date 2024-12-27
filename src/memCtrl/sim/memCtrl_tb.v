@@ -116,8 +116,8 @@ initial begin
           // Try writing 
 #2        _cs=0; 
           _writeToRam=1;
-          address=16'hAAAA;
-          dataToWrite=8'b10101010;
+          address=24'hAAAA;
+          dataToWrite=8'b11110000;
 #2        _cs=1; 
           assert(o_busy==1);
 #2        assert(o_psram_cs==0);
@@ -163,11 +163,45 @@ initial begin
           assert(io_psram_data3==='z); 
 #2        assert(U13_U25.state==sendQPIAddress);
           assert(o_busy==1);
-#500
+          assert(io_psram_data0==0);
+          assert(io_psram_data1==0);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==0);
+#2        assert(io_psram_data0==0);
+          assert(io_psram_data1==0);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==0);
 
+#2        assert(io_psram_data0==0);
+          assert(io_psram_data1==1);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==1);
+#2        assert(io_psram_data0==0);
+          assert(io_psram_data1==1);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==1);
+#2        assert(io_psram_data0==0);
+          assert(io_psram_data1==1);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==1);
+#2        assert(io_psram_data0==0);
+          assert(io_psram_data1==1);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==1);
+          // Write data
+#2        assert(io_psram_data0==1);
+          assert(io_psram_data1==1);
+          assert(io_psram_data2==1);
+          assert(io_psram_data3==1);          
+#2        assert(io_psram_data0==0);
+          assert(io_psram_data1==0);
+          assert(io_psram_data2==0);
+          assert(io_psram_data3==0);
+         
 
 
 /*
+assert(U13_U25.state==stateIdle);
 #2        assert(U13_U25.state==stateIdle);
 #2        $display("Start read test. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           assert(U13_U25.state==stateIdle);
