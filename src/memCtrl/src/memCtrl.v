@@ -17,7 +17,7 @@ typedef enum bit[7:0] {
   sendQPIAddress=12,
   writeData=20,
 
-  sendQPIReadCommand=60,
+  sendQPIReadCmd=60,
   readData=61,
 
   waitCycle=80,
@@ -44,6 +44,7 @@ typedef enum bit[1:0]  {
   XXX=3
 } Action;
 
+ localparam WAITCYCLES = 6;
 
 module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                 input wire reset,
@@ -62,7 +63,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                 inout wire io_psram_data6,
                 inout wire io_psram_data7,            
                 output wire o_psram_cs,
-                output wire oBusy, // 1-Busy
+                output wire o_Busy, // 1-Busy
                 output wire o_dataReady); 
 
   reg [3:0] dataU7;
@@ -75,31 +76,24 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
   reg [7:0] qpiCommand;
 
   /* Output */
-  reg n_oBusy;
-  assign oBusy=n_oBusy;
+  reg oBusy;
+  assign o_Busy=oBusy;
 
   Action action;
-
-reg mycs;
-reg myirq;  
-
-
-//  assign  dataRead[0]=dataReady ? byteToRead[0] : 1'bZ;
-//  assign  dataRead[1]=dataReady ? byteToRead[1] : 1'bZ; 
-//  assign  dataRead[2]=dataReady ? byteToRead[2] : 1'bZ; 
-//  assign  dataRead[3]=dataReady ? byteToRead[3] : 1'bZ; 
-//  assign  dataRead[4]=dataReady ? byteToRead[4] : 1'bZ; 
-//  assign  dataRead[5]=dataReady ? byteToRead[5] : 1'bZ; 
-//  assign  dataRead[6]=dataReady ? byteToRead[6] : 1'bZ; 
-//  assign  dataRead[7]=dataReady ? byteToRead[7] : 1'bZ; 
-
+  
+  assign  dataRead[0]=dataReady ? byteToRead[0] : 1'bZ;
+  assign  dataRead[1]=dataReady ? byteToRead[1] : 1'bZ; 
+  assign  dataRead[2]=dataReady ? byteToRead[2] : 1'bZ; 
+  assign  dataRead[3]=dataReady ? byteToRead[3] : 1'bZ; 
+  assign  dataRead[4]=dataReady ? byteToRead[4] : 1'bZ; 
+  assign  dataRead[5]=dataReady ? byteToRead[5] : 1'bZ; 
+  assign  dataRead[6]=dataReady ? byteToRead[6] : 1'bZ; 
+  assign  dataRead[7]=dataReady ? byteToRead[7] : 1'bZ; 
 
   reg dataReady;        
   assign o_dataReady=dataReady;
 
   reg [23:0] address;
-  
-
 
   // Loops through 3-0 to reuse write state, writing 4x same byte
   reg [3:0] byteToSendCounter;
@@ -113,12 +107,8 @@ reg myirq;
   StateMachine state, next;
     
   reg [7:0] byteToWrite;
-  reg [7:0] byteToReadBuffer;
   reg [7:0] byteToRead;
-
   
-  reg fetchData;
-
   reg psram_cs;
   assign o_psram_cs= psram_cs;
   
@@ -166,7 +156,7 @@ reg myirq;
         case (action)
           DONOTHING:          next=stateIdle;
           DOWRITE:            next=sendQPIWriteCmd;
-          DOREAD:             next=stateIdle;
+          DOREAD:             next=sendQPIReadCmd;
           default:            next=stateIdle;
         endcase
       end
@@ -174,6 +164,10 @@ reg myirq;
       sendQPIWriteCmd:
         if (shifter==8)         next=sendQPIAddress;
         else                    next=sendQPIWriteCmd;
+      
+      sendQPIReadCmd:
+        if (shifter==8)         next=sendQPIAddress;
+        else                    next=sendQPIReadCmd;
 
       sendQPIAddress:
         if (shifter==14)
@@ -181,10 +175,12 @@ reg myirq;
           if (action==DOWRITE)  next=writeData;
           else                  next=readData;
         end
-        else
-                                next=sendQPIAddress;
+        else                    next=sendQPIAddress;
+                                
       readData:
-        ;
+        if (shifter==14+WAITCYCLES+2) next=stateIdle;
+        else                    next=readData;
+
       writeData:
         if (shifter==16)        next=stateIdle;
         else                    next=writeData;
@@ -195,14 +191,14 @@ reg myirq;
 
   always_ff @(posedge i_clkRAM or negedge reset) begin
 
-    n_oBusy<=1;
+    oBusy<=1;
     dataU7<=4'bZ;
     dataU9<=4'bZ;
     psram_cs<=HIGH;
     direction<='0;
     
     if (!reset) begin
-      ;
+      dataReady<=0;
     end
     else begin
       if (i_cs==0) begin
@@ -241,22 +237,24 @@ reg myirq;
           stateIdle: begin
             psram_cs<=HIGH;
             direction<=8'b00000000; // all 'Z'
-
             case (action)
               DOWRITE: begin
+                dataReady<=0;
                 qpiCommand<=SPIQuadWrite;
                 shifter<=0;           
               end
               DOREAD: begin
+                dataReady<=0;
                 qpiCommand<=SPIQuadRead;
                 shifter<=0;                                     
               end
               DONOTHING: 
-                n_oBusy<=0;
+                oBusy<=0;
             endcase
           end
 
-          sendQPIWriteCmd: begin
+          sendQPIWriteCmd, 
+          sendQPIReadCmd: begin
             psram_cs<=LOW;
             direction<=8'b00010001; // SI active only
             dataU7[0]<=qpiCommand[shifter^7];
@@ -323,7 +321,36 @@ reg myirq;
                     dataU7[1]<=byteToWrite[1];
                     dataU7[2]<=byteToWrite[2];
                     dataU7[3]<=byteToWrite[3];
+                    action<=DONOTHING;
                   end  
+            endcase
+            shifter<=shifter+1;        
+          end
+
+          /* We have to wait for the psram to fetch our data before we can
+             actually read after having sent the address. */
+
+          readData: begin
+            psram_cs<=LOW;
+            direction<=8'b11111111; // all pins active
+            case (shifter) 
+              14+WAITCYCLES: begin
+                    byteToRead[4]<=io_psram_data0;
+                    byteToRead[5]<=io_psram_data1;
+                    byteToRead[6]<=io_psram_data2;
+                    byteToRead[7]<=io_psram_data3;
+                  end  
+              15+WAITCYCLES: begin
+                    byteToRead[0]<=io_psram_data0;
+                    byteToRead[1]<=io_psram_data1;
+                    byteToRead[2]<=io_psram_data2;
+                    byteToRead[3]<=io_psram_data3;
+                    action<=DONOTHING;
+                    dataReady<=1;
+                  end  
+
+              default: // Waitcyles
+                direction<=8'b0; // all Z
             endcase
             shifter<=shifter+1;        
           end
