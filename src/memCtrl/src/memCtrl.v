@@ -63,8 +63,8 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                 inout wire io_psram_data6,
                 inout wire io_psram_data7,            
                 output wire o_psram_cs,
-                output wire o_Busy, // 1-Busy
-                output wire o_dataReady); 
+                output wire o_busy, // 1-Busy
+                output logic o_dataReady); 
 
   reg [3:0] dataU7;
   reg [3:0] dataBufferU7;
@@ -77,22 +77,23 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
 
   /* Output */
   reg oBusy;
-  assign o_Busy=oBusy;
+  assign o_busy=oBusy;
 
+  //logic dataReady;
+  //assign o_dataReady=dataReady;
+  
   Action action;
   
-  assign  dataRead[0]=dataReady ? byteToRead[0] : 1'bZ;
-  assign  dataRead[1]=dataReady ? byteToRead[1] : 1'bZ; 
-  assign  dataRead[2]=dataReady ? byteToRead[2] : 1'bZ; 
-  assign  dataRead[3]=dataReady ? byteToRead[3] : 1'bZ; 
-  assign  dataRead[4]=dataReady ? byteToRead[4] : 1'bZ; 
-  assign  dataRead[5]=dataReady ? byteToRead[5] : 1'bZ; 
-  assign  dataRead[6]=dataReady ? byteToRead[6] : 1'bZ; 
-  assign  dataRead[7]=dataReady ? byteToRead[7] : 1'bZ; 
+  assign  dataRead[0]=o_dataReady ? byteToRead[0] : 1'bZ;
+  assign  dataRead[1]=o_dataReady ? byteToRead[1] : 1'bZ; 
+  assign  dataRead[2]=o_dataReady ? byteToRead[2] : 1'bZ; 
+  assign  dataRead[3]=o_dataReady ? byteToRead[3] : 1'bZ; 
+  assign  dataRead[4]=o_dataReady ? byteToRead[4] : 1'bZ; 
+  assign  dataRead[5]=o_dataReady ? byteToRead[5] : 1'bZ; 
+  assign  dataRead[6]=o_dataReady ? byteToRead[6] : 1'bZ; 
+  assign  dataRead[7]=o_dataReady ? byteToRead[7] : 1'bZ; 
 
-  reg dataReady;        
-  assign o_dataReady=dataReady;
-
+  
   reg [23:0] address;
 
   // Loops through 3-0 to reuse write state, writing 4x same byte
@@ -198,7 +199,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
     direction<='0;
     
     if (!reset) begin
-      dataReady<=0;
+      o_dataReady<=0;
     end
     else begin
       if (i_cs==0) begin
@@ -239,12 +240,12 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
             direction<=8'b00000000; // all 'Z'
             case (action)
               DOWRITE: begin
-                dataReady<=0;
+                o_dataReady<=0;
                 qpiCommand<=SPIQuadWrite;
                 shifter<=0;           
               end
               DOREAD: begin
-                dataReady<=0;
+                o_dataReady<=0;
                 qpiCommand<=SPIQuadRead;
                 shifter<=0;                                     
               end
@@ -346,7 +347,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                     byteToRead[2]<=io_psram_data2;
                     byteToRead[3]<=io_psram_data3;
                     action<=DONOTHING;
-                    dataReady<=1;
+                    o_dataReady<=1;
                   end  
 
               default: // Waitcyles
