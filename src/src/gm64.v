@@ -12,7 +12,7 @@
 `include "../MOS6502/src/cpu.v"
 `include "../counter/src/counter.v"
 `include "../memCtrl/src/memCtrl.v"
-
+`include "../sketchpad/src/sketchpad.v"
 
 typedef enum bit[3:0] {
   black=0,
@@ -46,11 +46,11 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             );
 
   
-  wire clkPhi0;
+  wire clkPhi0, clkPhi2;
+  wire clkSys;
  
   reg [15:0] addrBus; // out, address
-  reg [15:0] addrBusMemCtrl; // out, address
-  reg [5:0] bank;
+  reg [23:0] addrBusMemCtrl; // out, address
   wire [7:0] dataIn;  // write to memory
   wire [7:0] dataOut; // read from memory
   wire WE; // out, WriteEnable
@@ -68,7 +68,6 @@ module gm64(input clk0, // 10Mhz coming from FPGA
 
   reg [7:0] debug_mem_state;
   wire busy;
-  wire o_myDataReady;
   reg dataAck;
   wire memCtrlCE; // CE for memory controller    
   reg stop;
@@ -77,33 +76,33 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   reg clkRAM;
   reg CE;
 
-  Color deee;
-
-  wire o_dataReady;
-  assign o_myDataReady=o_dataReady;
-
+  logic rst;
+  Color color;
+  
+  
   assign memCtrlCE=CE;
-
+  logic dataReady;
+ 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
 
-  reset U20 (.clk(clk0), .fpga_but1(fpga_but1), .fpgaStart(fpgaStart), .reset(reset));  
+  reset U20 (.clk(clk0), 
+             .fpga_but1(fpga_but1), 
+             .fpgaStart(fpgaStart), 
+             .reset(rst)
+            );  
 
-  clockGen U31 (.clk10Mhz (clk0),
-               .clkRAM (clkRAM),
-               .clkDot (clkDot),
-               .clkVideo (clkVideo),
-               .reset (!reset) // low active
-              );
+  clockGen U31  (.clk10Mhz (clk0),
+                 .clkSys (clkSys)
+                );
   
-  memCtrl U13_U25(.clkPhi0(clkPhi0), 
-    .clkRAM(clkRAM), 
-    .reset(reset), 
-    .CS(memCtrlCE), 
-    .write(writeToRam), 
-    .bank(bank), 
-    .addrBus(addrBusMemCtrl), 
+  memCtrl U13_U25(
+    .i_clkRAM(clkSys), 
+    .reset(rst), 
+    .i_cs(memCtrlCE), 
+    .i_write(writeToRam), 
+    .i_address(addrBusMemCtrl), 
     .o_psram_sclk(o_psram_sclk),
     .dataToWrite(dataToWrite), 
     .dataRead(dataRead), 
@@ -117,14 +116,15 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data5(io_psram_data7),
     .o_psram_cs(o_psram_cs),
     .o_busy(busy),
-    .o_dataReady(o_dataReady)
+    .o_dataReady(dataReady)
     );
-
+  
+   
   VIC6569 U19 (
-    .clk(clkVideo),
-    .clkDot(clkDot),
-    .reset(!reset),
+    .clkSys(clkSys),
+    .reset(rst),
     .clkPhi0(clkPhi0),
+    .clkPhi2(clkPhi2),
     .o_hsync(o_hsync),
     .o_vsync(o_vsync),
     .o_red(o_red),
@@ -132,112 +132,83 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_blue(o_blue),
     .debugVIC(debugVIC) // testing only
   );
-  // Connect the new clk to the global routing resources to ensure that all
-  // modules get the signal (nearly...) at the same time
-  // CC_BUFG pll_clkPhi0 (.I(clkPhi0), .O(clkPhi01));
- 
-  assign dataIn=o_dataReady==1 ? dataRead : 1'bZ;
 
-  cpu U7(.clk(clkPhi0), .reset(!reset), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
+  cpu U7(.clk(clkPhi0), .reset(!rst), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
  
   reg [3:0] debugVIC;
+  reg [3:0] nextCol;
+  reg [24:0] coun;
+  reg [63:0] cntCycle;
+/*
+  // Testing
+  sketchpad SKETCH (
+     .clk(clk0), 
+     .fpga_but1(fpga_but1),
+     .signal(buttonPressed)
+  );*/
 
-  always@(posedge clkRAM)
-  begin
-    if (o_myDataReady==0) begin
-      stop<=1;
-      debugVIC<=green;
-    end
-    else if (o_myDataReady==1) begin
-      stop<=1;
-      debugVIC<=gray;
-    end
-    else debugVIC<=red;
-  end
-
-  /*
-  always @(posedge clkPhi0 or negedge reset) begin
-    if (!reset) begin
-      looper=0;
-      debug<=blue;
-      stop<=0;
-      CE<=0;
-      addrBusMemCtrl<=0;
-      bank<=0;
-      dataToWrite<=0;
-      doWrite<=0;
+  logic cycle=0;
+  logic cntCycleOld;
+  logic dataReady;
+  logic success;
+  always @(posedge clkSys) begin
+    if (!rst) begin
+      cntCycleOld<=0;
+      debugVIC<=red;
+      dataReady=0;
     end
     else begin
-      if (o_dataReady==1) begin
-        stop<=1;
-        debug<=green;
-      end
-      else begin
-        if (looper<=5500) begin
-          debug<=navy;
-        end
-        else if (looper>5500 && looper<=6000) begin
-          debug<=yellow;
-        end
-        else if (looper>6000 && looper<=7500) begin
-          debug<=blue;  
-        end
-        else if (looper>7500 && looper<=8000) begin
-          debug<=red;  
-          if (looper==7591) begin
-            addrBusMemCtrl<=49152;
-            bank<=0;
-            dataToWrite<=121;
-            doWrite<=1;
-            CE<=1;
+      cntCycleOld<=cntCycle;
+      if (cntCycleOld!=cntCycle) begin
+        if (doRead) begin    
+          if (addrToRead==16'hfffc) begin
+            debugVIC<=yellow;
+            dataIn=8'h00;
           end
-          if (looper==7593) begin
-            if (busy==0) begin
-              addrBusMemCtrl<=49152;
-              bank<=0;
-              dataToWrite<=0;
-              doWrite<=0;
-              CE<=1;
-            end
+          else if (addrToRead==16'hfffd) begin
+            debugVIC<=blue;
+            dataIn=8'h03;
+          end
+          else if (addrToRead==16'h0300) begin
+            debugVIC<=yellow;
+            dataIn=8'h8d; // STA $d020
+          end
+          else if (addrToRead==16'h0301) begin
+            debugVIC<=yellow;
+            dataIn=8'h20; // STA $d020
+          end
+          else if (addrToRead==16'h0302) begin
+            debugVIC<=yellow;
+            dataIn=8'hd0; // STA $d020
           end
         end
-        looper++;
-        if (looper>8000) looper=0;
+        else begin
+          if (success) debugVIC<=green;
+        end
       end
     end
-  end  */
+  end
+
+  
+  logic doRead;
+  logic [0:15] addrToRead;
+  always @(posedge clkPhi0) begin
+    if (!rst) begin
+      cntCycle<=0;
+      success<=0;
+      doRead=0;
+    end
+    else cntCycle<=cntCycle+1;
+    doRead<=!WE;
+    if (!WE) begin // read
+      addrToRead<=addrBus;
+    end
+    else if (WE==1) begin
+      case (addrBus)
+        16'hd020: success<=1;
+      endcase
+    end
+  end      
+
 endmodule  
-
-/*
-      else if (looper==39002) begin
-          if (dataRead==0) begin
-            debug=6; // green
-          end
-          else begin
-            debug=8; // red
-          end
-      end
-      if (looper>39002) begin
-        looper=39002;
-        debug=6;
-      end
-      /* This is a little 6502 test which will execute a program at $c000 after reset 
-         and "store" a value in $d020 
-
-      if (addrBus==16'hfffc) dataIn=8'h00;
-      if (addrBus==16'hfffd) dataIn=8'hc0;
-      if (addrBus==16'hc000) begin
-        dataIn=8'h8d; // STA $d020
-        debug=5;
-      end
-      if (addrBus==16'hc001) dataIn=8'h20; 
-      if (addrBus==16'hc002) dataIn=8'hd0; 
-      if (addrBus==16'hc003) dataIn=8'h4c; // JMP $c000
-      if (addrBus==16'hc004) dataIn=8'h00; 
-      if (addrBus==16'hc005) dataIn=8'hc0; 
-      if (addrBus==16'hd020 && WE) debug=2; // sta $d020 executed, show colour as positive response 
-      */
-
-
-
 `endif

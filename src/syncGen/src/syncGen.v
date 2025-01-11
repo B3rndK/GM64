@@ -38,8 +38,8 @@ module syncGen(input clk,
   parameter V_MAX           = V_DISPLAY + V_TOP + V_BOTTOM + V_SYNC - 1;
 
   
-  wire hmaxxed = (o_hpos == H_MAX) || reset;	// set when hpos is maximum
-  wire vmaxxed = (o_vpos == V_MAX) || reset;	// set when vpos is maximum
+  wire hmaxxed = (o_hpos == H_MAX) || !reset;	// set when hpos is maximum
+  wire vmaxxed = (o_vpos == V_MAX) || !reset;	// set when vpos is maximum
   
   // horizontal position counter
   always @(posedge clk)

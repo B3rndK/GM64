@@ -38,7 +38,7 @@ memCtrl U13_U25(
   .io_psram_data6(io_psram_data6),
   .io_psram_data7(io_psram_data7),
   .o_psram_cs(o_psram_cs),
-  .o_Busy(o_busy),
+  .o_busy(o_busy),
   .o_dataReady(o_dataReady)
   );
 
@@ -59,7 +59,7 @@ initial begin
           $dumpvars(0, memCtrl_tb);
 #2        $display("Starting PSRAM write test. Resetting controller.");          
           reset=0; 
-#2        assert(U13_U25.oBusy==1); //valid only after clk change.
+#2        assert(o_busy==1); //valid only after clk change.
 #2        reset=1;
           $display ("Reset removed.");
 #2        assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
