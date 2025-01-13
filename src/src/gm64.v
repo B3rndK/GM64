@@ -55,7 +55,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   wire [7:0] dataOut; // read from memory
   wire WE; // out, WriteEnable
   wire irq=0;
-  wire rdy=1;
+  wire rdy;
   wire nmi=0;
   wire  writeToRam=0;
   reg doWrite=0;
@@ -139,6 +139,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   reg [3:0] nextCol;
   reg [24:0] coun;
   reg [63:0] cntCycle;
+  reg [63:0] cntCycleOld;
 /*
   // Testing
   sketchpad SKETCH (
@@ -148,17 +149,111 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   );*/
 
   logic cycle=0;
-  logic cntCycleOld;
+  
   logic dataReady;
   logic success;
+
+  typedef enum bit[7:0] {
+    sstateReset=0,
+    sstateInitRAM=1,
+    sstateReadRAM=2,
+    sstateRun=3,
+    sstateFailure=90,
+    sstateSuccess=98,
+    sstateXXX=99
+  } SStateMachine;
+
+  SStateMachine state, next;
+
+  always_ff @(posedge clkSys or negedge rst) 
+    if (!rst) state<=sstateXXX;
+    else state<=next;  
+
+  // next logic
+  always_comb begin
+    next=sstateXXX;
+    case (state)
+      sstateXXX: next=sstateReset;
+      sstateReset: if (cntCycleFast>64'd5000) next=sstateInitRAM;
+                   else next=sstateReset;
+      sstateInitRAM: if (bytesWritten==0) next=sstateInitRAM;
+                    else next=sstateReadRAM;
+      sstateReadRAM: if (bytesRead==0) next=sstateReadRAM;
+                    else if (byteRead==8'haa) next=sstateSuccess;
+                    else next=sstateFailure;
+      sstateSuccess: next=sstateSuccess;                   
+      sstateFailure: next=sstateFailure;
+    endcase
+  end
+  
+  logic [7:0] bytesWritten;
+  logic [7:0] readRequested;
+  logic [7:0] bytesRead;
+  logic [7:0] byteRead;
+  reg [63:0] cntCycleMS;
+  
+  reg [63:0] cntCycleOld;
+
+  logic [63:0] cntCycleMS;
+  logic [63:0] cntCycleFast;
+  
   always @(posedge clkSys) begin
+    cntCycleMS=cntCycle;
+    cntCycleFast=cntCycleMS;
+  end
+
+  always_ff @(posedge clkSys or negedge rst) 
     if (!rst) begin
-      cntCycleOld<=0;
       debugVIC<=red;
-      dataReady=0;
+      bytesWritten<=0;
+      bytesRead<=0;
+      readRequested<=0;
+      CE<=1;
     end
-    else begin
-      cntCycleOld<=cntCycle;
+    else begin   
+      CE<=1;
+      cntCycleOld<=cntCycleFast;
+      case (next) 
+        sstateInitRAM: begin
+            debugVIC<=yellow;
+            if (!busy && bytesWritten==0) begin
+              CE<=0;
+              doWrite<=1;
+              addrBusMemCtrl<=24'h00fffc;
+              dataToWrite<=8'haa;
+              bytesWritten<=1;
+            end
+        end
+        sstateReadRAM: begin
+            if (!busy && bytesRead==0 && readRequested==0) begin
+              readRequested<=1;
+              CE<=0;
+              doWrite<=0;
+              addrBusMemCtrl<=24'h00fffc;
+            end
+            else if (dataReady && readRequested && bytesRead==0) begin
+              bytesRead<=1;
+              byteRead<=dataRead;
+            end
+        end
+        sstateSuccess: begin
+          debugVIC<=green;
+        end
+
+        sstateReset: begin
+          debugVIC<=navy;
+          /*
+          if debugVIC<=navy;
+          else debugVIC<=gray;*/
+        end
+
+        sstateFailure: begin
+          debugVIC<=red;
+        end
+        
+        default: debugVIC<=gray;
+      endcase
+      /*
       if (cntCycleOld!=cntCycle) begin
         if (doRead) begin    
           if (addrToRead==16'hfffc) begin
@@ -185,30 +280,34 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         else begin
           if (success) debugVIC<=green;
         end
-      end
+      end*/
     end
-  end
-
+  logic _rdy;
+  assign rdy=_rdy;
   
   logic doRead;
   logic [0:15] addrToRead;
-  always @(posedge clkPhi0) begin
+  logic isRamInitialized;
+
+ 
+  always_ff @(posedge clkPhi0 or negedge rst) 
     if (!rst) begin
       cntCycle<=0;
       success<=0;
-      doRead=0;
+      doRead<=0;
+      _rdy<=0;
+      isRamInitialized<=0;
     end
-    else cntCycle<=cntCycle+1;
+    else begin cntCycle<=cntCycle+1;
     doRead<=!WE;
     if (!WE) begin // read
-      addrToRead<=addrBus;
+      if (addrBus==16'hfffc) addrToRead<=addrBus;
     end
-    else if (WE==1) begin
+    else if (WE==1) begin // write
       case (addrBus)
         16'hd020: success<=1;
       endcase
     end
-  end      
-
+    end
 endmodule  
 `endif
