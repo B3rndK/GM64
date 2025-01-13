@@ -114,8 +114,7 @@ initial begin
           _writeToRam=1;
           address=24'hAAAA;
           dataToWrite=8'b11110000;
-#2        _cs=1; 
-          assert(o_busy==1);
+#2        assert(o_busy==1);
 #2        assert(o_psram_cs==0);
           assert(U13_U25.state==sendQPIWriteCmd);
           assert(io_psram_data0==U13_U25.qpiCommand[7]);
@@ -168,7 +167,6 @@ initial begin
           assert(io_psram_data1==0);
           assert(io_psram_data2==0);
           assert(io_psram_data3==0);
-
 #2        assert(io_psram_data0==0);
           assert(io_psram_data1==1);
           assert(io_psram_data2==0);
@@ -196,6 +194,7 @@ initial begin
           assert(io_psram_data3==0);
 #2        assert(U13_U25.psram_cs==1);
           assert(o_busy==0);
+          _cs=1; 
           assert(U13_U25.state==stateIdle);
 #20       assert(U13_U25.state==stateIdle);          
 #2        $display("Starting PSRAM read test. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);

@@ -7,6 +7,8 @@
 /* 8-Bit Memory controller interface using LY68S3200 
    32M (4Mx8) Bits Serial Pseudo-SRAM with SPI and QPI. */
 
+// only act on CE in case it has been toggled! (lastCE<=CE; CE and !lastCE )
+
 typedef enum bit[7:0] {
   stateReset=0,
   delayAfterReset=1,
@@ -120,6 +122,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
 
   // Direction direction; // 0- in (read), 1-out (write)
   reg [7:0] direction;
+  logic csTriggered, csTriggeredOld;
 
   assign io_psram_data0=(direction[0]==1 ? dataU7[0] : 1'bZ);
   assign io_psram_data1=(direction[1]==1 ? dataU7[1] : 1'bZ);
@@ -191,175 +194,183 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
   
 
   always_ff @(posedge i_clkRAM or negedge reset) begin
-
-    oBusy<=1;
+    oBusy<=next!=stateIdle;
     dataU7<=4'bZ;
     dataU9<=4'bZ;
     psram_cs<=HIGH;
     direction<='0;
-    
     if (!reset) begin
+      oBusy<=1;
+      csTriggeredOld<=1;
+      csTriggered<=0;
       o_dataReady<=0;
     end
     else begin
       if (i_cs==0) begin
-        shifter<=0;
-        if (i_write) begin
-            action<=DOWRITE;
-            qpiCommand<=SPIQuadWrite;
-            byteToWrite<=dataToWrite;
+        if (csTriggeredOld!=csTriggered) begin
+          oBusy<=1;
+          csTriggered<=csTriggered+1;
+          csTriggeredOld<=csTriggered+1;
+          shifter<=0;
+          if (i_write) begin
+              action<=DOWRITE;
+              qpiCommand<=SPIQuadWrite;
+              byteToWrite<=dataToWrite;
+          end
+          else begin
+            action<=DOREAD;
+            qpiCommand<=SPIQuadRead;
+          end
+          address<=i_address;
         end
-        else begin
-          action<=DOREAD;
-          qpiCommand<=SPIQuadRead;
-        end
-        address<=i_address;
+      end 
+      else begin
+        csTriggered<=0;
+        csTriggeredOld<=~csTriggered;
       end
-      else
-        case (next) 
-          stateReset: begin
-            delayCounter<=initDelayInClkCyles;
-          end
 
-          delayAfterReset: begin 
-            delayCounter<=delayCounter-1;
-            qpiCommand<=enableQPIModeCmd;
-            shifter<=0;
-          end
+      case (next) 
+        stateReset: begin
+          delayCounter<=initDelayInClkCyles;
+        end
 
-          sendQPIEnable: begin
-            psram_cs<=LOW;
-            direction<=8'b00010001; // SI active only
-            dataU7[0]<=qpiCommand[shifter^7];
-            dataU9[0]<=qpiCommand[shifter^7];
-            shifter<=shifter+1;        
-          end    
+        delayAfterReset: begin 
+          delayCounter<=delayCounter-1;
+          qpiCommand<=enableQPIModeCmd;
+          shifter<=0;
+        end
 
-          stateIdle: begin
-            psram_cs<=HIGH;
-            direction<=8'b00000000; // all 'Z'
-            case (action)
-              DOWRITE: begin
-                o_dataReady<=0;
-                qpiCommand<=SPIQuadWrite;
-                shifter<=0;           
-              end
-              DOREAD: begin
-                o_dataReady<=0;
-                qpiCommand<=SPIQuadRead;
-                shifter<=0;                                     
-              end
-              DONOTHING: 
-                oBusy<=0;
-            endcase
-          end
+        sendQPIEnable: begin
+          psram_cs<=LOW;
+          direction<=8'b00010001; // SI active only
+          dataU7[0]<=qpiCommand[shifter^7];
+          dataU9[0]<=qpiCommand[shifter^7];
+          shifter<=shifter+1;        
+        end    
 
-          sendQPIWriteCmd, 
-          sendQPIReadCmd: begin
-            psram_cs<=LOW;
-            direction<=8'b00010001; // SI active only
-            dataU7[0]<=qpiCommand[shifter^7];
-            dataU9[0]<=qpiCommand[shifter^7];        
-            shifter<=shifter+1; 
-          end
+        stateIdle: begin
+          psram_cs<=HIGH;
+          direction<=8'b00000000; // all 'Z'
+          case (action)
+            DOWRITE: begin
+              o_dataReady<=0;
+              qpiCommand<=SPIQuadWrite;
+              shifter<=0;           
+            end
+            DOREAD: begin
+              o_dataReady<=0;
+              qpiCommand<=SPIQuadRead;
+              shifter<=0;                                     
+            end
+            DONOTHING: 
+              ;
+          endcase
+        end
 
-          sendQPIAddress: begin
-            psram_cs<=LOW;
-            direction<=8'b11111111; // all pins active
-            case (shifter) 
-              8:  begin
-                    dataU7[0]<=address[20];
-                    dataU7[1]<=address[21];
-                    dataU7[2]<=address[22];
-                    dataU7[3]<=address[23];
-                  end
-              9:  begin
-                    dataU7[0]<=address[16];
-                    dataU7[1]<=address[17];
-                    dataU7[2]<=address[18];
-                    dataU7[3]<=address[19];
-                  end
-              10: begin
-                    dataU7[0]<=address[12];
-                    dataU7[1]<=address[13];
-                    dataU7[2]<=address[14];
-                    dataU7[3]<=address[15];
-                  end
-              11: begin
-                    dataU7[0]<=address[8];
-                    dataU7[1]<=address[9];
-                    dataU7[2]<=address[10];
-                    dataU7[3]<=address[11];
-                  end
-              12: begin
-                    dataU7[0]<=address[4];
-                    dataU7[1]<=address[5];
-                    dataU7[2]<=address[6];
-                    dataU7[3]<=address[7];
-                  end
-              13: begin
-                    dataU7[0]<=address[0];
-                    dataU7[1]<=address[1];
-                    dataU7[2]<=address[2];
-                    dataU7[3]<=address[3];
-                  end
-            endcase
-            shifter<=shifter+1;        
-          end
+        sendQPIWriteCmd, 
+        sendQPIReadCmd: begin
+          psram_cs<=LOW;
+          direction<=8'b00010001; // SI active only
+          dataU7[0]<=qpiCommand[shifter^7];
+          dataU9[0]<=qpiCommand[shifter^7];        
+          shifter<=shifter+1; 
+        end
 
-          writeData: begin
-            psram_cs<=LOW;
-            direction<=8'b11111111; // all pins active
-            case (shifter) 
-              14: begin
-                    dataU7[0]<=byteToWrite[4];
-                    dataU7[1]<=byteToWrite[5];
-                    dataU7[2]<=byteToWrite[6];
-                    dataU7[3]<=byteToWrite[7];
-                  end  
-              15: begin
-                    dataU7[0]<=byteToWrite[0];
-                    dataU7[1]<=byteToWrite[1];
-                    dataU7[2]<=byteToWrite[2];
-                    dataU7[3]<=byteToWrite[3];
-                    action<=DONOTHING;
-                  end  
-            endcase
-            shifter<=shifter+1;        
-          end
+        sendQPIAddress: begin
+          psram_cs<=LOW;
+          direction<=8'b11111111; // all pins active
+          case (shifter) 
+            8:  begin
+                  dataU7[0]<=address[20];
+                  dataU7[1]<=address[21];
+                  dataU7[2]<=address[22];
+                  dataU7[3]<=address[23];
+                end
+            9:  begin
+                  dataU7[0]<=address[16];
+                  dataU7[1]<=address[17];
+                  dataU7[2]<=address[18];
+                  dataU7[3]<=address[19];
+                end
+            10: begin
+                  dataU7[0]<=address[12];
+                  dataU7[1]<=address[13];
+                  dataU7[2]<=address[14];
+                  dataU7[3]<=address[15];
+                end
+            11: begin
+                  dataU7[0]<=address[8];
+                  dataU7[1]<=address[9];
+                  dataU7[2]<=address[10];
+                  dataU7[3]<=address[11];
+                end
+            12: begin
+                  dataU7[0]<=address[4];
+                  dataU7[1]<=address[5];
+                  dataU7[2]<=address[6];
+                  dataU7[3]<=address[7];
+                end
+            13: begin
+                  dataU7[0]<=address[0];
+                  dataU7[1]<=address[1];
+                  dataU7[2]<=address[2];
+                  dataU7[3]<=address[3];
+                end
+          endcase
+          shifter<=shifter+1;        
+        end
 
-          /* We have to wait for the psram to fetch our data before we can
-             actually read after having sent the address. */
+        writeData: begin
+          psram_cs<=LOW;
+          direction<=8'b11111111; // all pins active
+          case (shifter) 
+            14: begin
+                  dataU7[0]<=byteToWrite[4];
+                  dataU7[1]<=byteToWrite[5];
+                  dataU7[2]<=byteToWrite[6];
+                  dataU7[3]<=byteToWrite[7];
+                end  
+            15: begin
+                  dataU7[0]<=byteToWrite[0];
+                  dataU7[1]<=byteToWrite[1];
+                  dataU7[2]<=byteToWrite[2];
+                  dataU7[3]<=byteToWrite[3];
+                  action<=DONOTHING;
+                end  
+          endcase
+          shifter<=shifter+1;        
+        end
 
-          readData: begin
-            psram_cs<=LOW;
-            direction<=8'b11111111; // all pins active
-            case (shifter) 
-              14+WAITCYCLES: begin
-                    byteToRead[4]<=io_psram_data0;
-                    byteToRead[5]<=io_psram_data1;
-                    byteToRead[6]<=io_psram_data2;
-                    byteToRead[7]<=io_psram_data3;
-                  end  
-              15+WAITCYCLES: begin
-                    byteToRead[0]<=io_psram_data0;
-                    byteToRead[1]<=io_psram_data1;
-                    byteToRead[2]<=io_psram_data2;
-                    byteToRead[3]<=io_psram_data3;
-                    action<=DONOTHING;
-                    o_dataReady<=1;
-                  end  
+        /* We have to wait for the psram to fetch our data before we can
+            actually read after having sent the address. */
 
-              default: // Waitcyles
-                direction<=8'b0; // all Z
-            endcase
-            shifter<=shifter+1;        
-          end
+        readData: begin
+          psram_cs<=LOW;
+          direction<=8'b11111111; // all pins active
+          case (shifter) 
+            14+WAITCYCLES: begin
+                  byteToRead[4]<=io_psram_data0;
+                  byteToRead[5]<=io_psram_data1;
+                  byteToRead[6]<=io_psram_data2;
+                  byteToRead[7]<=io_psram_data3;
+                end  
+            15+WAITCYCLES: begin
+                  byteToRead[0]<=io_psram_data0;
+                  byteToRead[1]<=io_psram_data1;
+                  byteToRead[2]<=io_psram_data2;
+                  byteToRead[3]<=io_psram_data3;
+                  action<=DONOTHING;
+                  o_dataReady<=1;
+                end  
 
-        endcase
+            default: // Waitcyles
+              direction<=8'b0; // all Z
+          endcase
+          shifter<=shifter+1;        
+        end
+      endcase
     end
- end
-
+  end
 endmodule
 `endif 
 
