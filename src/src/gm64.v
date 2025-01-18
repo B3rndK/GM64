@@ -85,7 +85,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
-
+  
   reset U20 (.clk(clk0), 
              .fpga_but1(fpga_but1), 
              .fpgaStart(fpgaStart), 
@@ -162,6 +162,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     sstateReadRAM=2,
     sstateRun=3,
     sstateRepeat=4,
+    sstateFinal=5,
     sstateFailure=90,
     sstateSuccess=98,
     sstateXXX=99
@@ -196,8 +197,10 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       sstateSuccess: if (!busy) next=sstateRepeat;                   
                      else next=sstateSuccess;                   
       sstateFailure: next=sstateFailure;
-      sstateRepeat:  if (addressToTest>noAddressesToTest) next=sstateSuccess;
+      sstateRepeat:  if (addressToTest>noAddressesToTest) next=sstateFinal;
                      else next=sstateInitRAM;
+
+      sstateFinal:   next=sstateFinal;
     endcase
   end
   
@@ -216,13 +219,12 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       readRequested<=0;
       CE<=1;
       led<=0;
-      noAddressesToTest=24'h100000; // We want to write and read this number of addresses
+      noAddressesToTest=24'd4096100; // We want to write and read this number of addresses
       addressToTest<=24'h1;
     end
     else begin   
       case (next) 
         sstateInitRAM: begin
-          led<=0;
           debugVIC<=gray;
           if (!busy && bytesWritten==0) begin
             CE<=0;
@@ -233,6 +235,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           end
         end
         sstateReadRAM: begin
+          led<=0;
           if (CE==0) CE<=1;
           else if (dataReady && !busy) begin
               debugVIC<=blue;
@@ -250,8 +253,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         end
 
         sstateSuccess: begin
+          CE<=1;
           debugVIC<=green;
-          led<=1;
         end
         
         sstateRepeat: begin
@@ -263,6 +266,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           if (addressToTest<=noAddressesToTest) addressToTest<=addressToTest+1;
         end
 
+        sstateFinal: led<=1;
+          
 
         sstateReset: begin
           cntDelay<=cntDelay+1;
