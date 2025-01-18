@@ -9,7 +9,7 @@
 */
 
 module VIC6569(input clkSys,
-               input reset, 
+               input logic reset, 
                output clkPhi0, // CPU
                output clkPhi2, // VIC (inverted phi0)
                output o_hsync, 
@@ -36,7 +36,7 @@ module VIC6569(input clkSys,
     
   assign clkPhi0=cntPhi0>=CLK_PHI0_DIVIDER;
   assign clkPhi2=~cntPhi0;
-  assign clkHDMI=cntHDMI<=2;
+  assign clkHDMI=cntHDMI<2;
 
   assign  o_red = (display_on) ? red : 6;
   assign  o_green = (display_on) ? green : 6;
@@ -112,7 +112,7 @@ module VIC6569(input clkSys,
       cntHDMI<=1;
     end 
     else begin
-      if (cntHDMI==4) begin
+      if (cntHDMI==3) begin
         cntHDMI<=1;
       end
       else cntHDMI<=cntHDMI+1;

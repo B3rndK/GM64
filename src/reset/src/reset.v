@@ -28,19 +28,18 @@ always @(posedge clk_sys) begin
 module reset(input  clk,          // 10 Mhz std fpga clk
              input  fpga_but1,    // FPGA Button
              input  fpgaStart,    // FPGA reports it is starting (programming finished)
-             output reset);       // low active
+             output logic reset); // low active
 
   localparam [25:0] DELAY_500MS=25'h4c4b40;   // We will keep reset active for 500ms
   reg [25:0] counter;
 
-  assign reset=!(counter<DELAY_500MS);   
-  
   always @(posedge clk) 
   begin
-    if (!fpga_but1) counter<=0;
-    if (!fpgaStart) counter<=0;
+    if (!fpga_but1) counter=0;
+    if (!fpgaStart) counter=0;
     else begin
-      if (counter<=DELAY_500MS) counter<=counter+1;
+      if (counter<=DELAY_500MS) counter++;
+      reset=!(counter<DELAY_500MS);       
     end
   end
   
