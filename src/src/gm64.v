@@ -187,7 +187,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
                         next=sstateReadRAM;
                      end
                      else if (bytesRead>0) begin
-                       if (dataRead==8'haa/*204,221*/) next=sstateSuccess;
+                       if (dataRead==8'h00/*204,221*/) next=sstateSuccess;
                        else next=sstateFailure;
                      end
       sstateSuccess: next=sstateSuccess;                   
@@ -219,7 +219,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             CE<=0;
             writeToRam<=1;
             addrBusMemCtrl<=24'h00fffc;
-            dataToWrite<=8'haa;
+            dataToWrite<=8'h00;
             bytesWritten<=1;
           end
         end

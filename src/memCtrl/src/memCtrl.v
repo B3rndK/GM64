@@ -31,7 +31,7 @@ typedef enum bit[7:0] {
 typedef enum reg[7:0] {
   enableQPIModeCmd=8'b00110101,
   SPIQuadWrite=8'b00111000,
-  SPIQuadRead=8'b111101011
+  SPIQuadRead=8'b11101011
 } QPICommands;
 
 typedef enum reg  {
@@ -103,8 +103,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     
   reg [7:0] byteToWrite;
     
-  reg psram_cs;
-  assign o_psram_cs= psram_cs;
+  reg psram_cs=1;
+  reg psram_cs2=0;
+  assign o_psram_cs= psram_cs2==1 ? 0 : psram_cs;
   
   reg[5:0] shifter;
  
@@ -129,6 +130,16 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     if (!reset) state<=stateXXX;
     else state<=next;  
   
+
+  always @(negedge i_clkRAM)
+   case (next)
+    sendQPIEnable:    psram_cs2=1;
+    sendQPIWriteCmd:  psram_cs2=1;
+    sendQPIReadCmd:   psram_cs2=1;
+    default:
+                      psram_cs2=0;
+   endcase
+
   // next logic
   always_comb begin
     next=stateXXX;
