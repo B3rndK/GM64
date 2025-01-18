@@ -5,18 +5,18 @@
 
 module memCtrl_tb();
   
-  reg clkRAM;
-  reg reset;
-  reg _writeToRam;
-  reg [23:0] address;
-  reg [7:0] dataToWrite;
-  reg [7:0] dataRead;
-  reg busy;
+  logic clkRAM;
+  logic reset;
+  logic _writeToRam;
+  logic [23:0] address;
+  logic [7:0] dataToWrite;
+  logic [7:0] dataRead;
+  logic busy;
   reg [7:0] debug;
   wire io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
       io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
-  wire o_busy;
-  wire o_dataReady;
+  logic o_busy;
+  logic o_dataReady;
   wire o_psram_cs;
   reg _cs;
 
@@ -27,8 +27,8 @@ memCtrl U13_U25(
   .i_write(_writeToRam),
   .i_address(address), 
   .o_psram_sclk(o_psram_sclk),  
-  .dataToWrite(dataToWrite), 
-  .dataRead(dataRead), 
+  .i_dataToWrite(dataToWrite), 
+  .o_dataRead(dataRead), 
   .io_psram_data0(io_psram_data0),
   .io_psram_data1(io_psram_data1),
   .io_psram_data2(io_psram_data2),
@@ -58,104 +58,77 @@ initial begin
           $dumpfile("sim/memCtrl_tb.vcd");
           $dumpvars(0, memCtrl_tb);
 #2        $display("Starting PSRAM write test. Resetting controller.");          
-          reset=0; 
-#2        assert(o_busy==1); //valid only after clk change.
-#2        reset=1;
+          reset=0;
+#1        assert(0==o_psram_sclk);   
+#1        assert(0==o_psram_sclk);
+#1        assert(0==o_psram_sclk);
+#20       assert(o_busy==1); //valid only after clk change.
+#1        assert(0==o_psram_sclk);   
+#1        assert(0==o_psram_sclk);
+#20       reset=1;
           $display ("Reset removed.");
-#2        assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
+#1        assert(0==o_psram_sclk);
+#1        assert(1==o_psram_sclk);
+          assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
 #2        assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles-1);
 #29998    assert(U13_U25.delayCounter==0);
+          assert(U13_U25.isInitialized==0);
 #2        assert(U13_U25.state==sendQPIEnable);
           assert(U13_U25.psram_cs==0); 
           assert(io_psram_data0==U13_U25.qpiCommand[7]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[7]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[6]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[6]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[5]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[5]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[4]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[4]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[3]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[3]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[2]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[2]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[1]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[1]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(io_psram_data0==U13_U25.qpiCommand[0]); // SI U7
-          assert(io_psram_data4==U13_U25.qpiCommand[0]); // SI U9
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
-#2        assert(U13_U25.state==stateIdle);
+#2        assert(U13_U25.isInitialized==1);
+          assert(U13_U25.state==stateIdle);
           assert(o_busy==0);
           // Try writing 
 #2        _cs=0; 
           _writeToRam=1;
           address=24'hAAAA;
           dataToWrite=8'b11110000;
-#2        assert(o_busy==1);
+#2        _cs=1; 
+          assert(o_busy==1);
 #2        assert(o_psram_cs==0);
           assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[7]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(o_busy==1);
-          assert(io_psram_data0==U13_U25.qpiCommand[6]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[5]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[4]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[3]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[2]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[1]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data0==U13_U25.qpiCommand[0]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
+          assert(io_psram_data3==U13_U25.qpiCommand[7]);
+          assert(io_psram_data2==U13_U25.qpiCommand[6]); 
+          assert(io_psram_data1==U13_U25.qpiCommand[5]); 
+          assert(io_psram_data0==U13_U25.qpiCommand[4]); 
+          assert(o_busy==1);
+#2        assert(o_psram_cs==0);
+          assert(io_psram_data3==U13_U25.qpiCommand[3]);
+          assert(io_psram_data2==U13_U25.qpiCommand[2]); 
+          assert(io_psram_data1==U13_U25.qpiCommand[1]); 
+          assert(io_psram_data0==U13_U25.qpiCommand[0]); 
 #2        assert(U13_U25.state==sendQPIAddress);
           assert(o_busy==1);
           assert(o_psram_cs==0);
@@ -203,41 +176,16 @@ initial begin
           address=24'hAAAA;
 #2        _cs=1; 
 #2        assert(U13_U25.state==sendQPIReadCmd); 
-          assert(io_psram_data0==U13_U25.qpiCommand[7]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
+          assert(io_psram_data3==U13_U25.qpiCommand[7]);
+          assert(io_psram_data2==U13_U25.qpiCommand[6]);
+          assert(io_psram_data1==U13_U25.qpiCommand[5]);
+          assert(io_psram_data0==U13_U25.qpiCommand[4]);
           assert(o_dataReady==0);          
 #2        assert(o_busy==1);
-          assert(io_psram_data0==U13_U25.qpiCommand[6]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(io_psram_data0==U13_U25.qpiCommand[5]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(io_psram_data0==U13_U25.qpiCommand[4]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(io_psram_data0==U13_U25.qpiCommand[3]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(io_psram_data0==U13_U25.qpiCommand[2]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(io_psram_data0==U13_U25.qpiCommand[1]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
-#2        assert(U13_U25.state==sendQPIReadCmd);
+          assert(io_psram_data3==U13_U25.qpiCommand[3]);
+          assert(io_psram_data2==U13_U25.qpiCommand[2]);
+          assert(io_psram_data1==U13_U25.qpiCommand[1]);
           assert(io_psram_data0==U13_U25.qpiCommand[0]);
-          assert(io_psram_data1==='z); 
-          assert(io_psram_data2==='z); 
-          assert(io_psram_data3==='z); 
 #2        assert(U13_U25.state==sendQPIAddress);
           assert(o_busy==1);
           assert(o_psram_cs==0);
@@ -249,7 +197,6 @@ initial begin
           assert(io_psram_data1==0);
           assert(io_psram_data2==0);
           assert(io_psram_data3==0);
-
 #2        assert(io_psram_data0==0);
           assert(io_psram_data1==1);
           assert(io_psram_data2==0);
@@ -262,17 +209,25 @@ initial begin
           assert(io_psram_data1==1);
           assert(io_psram_data2==0);
           assert(io_psram_data3==1);
+          assert(o_busy==1);
+          assert(o_dataReady==0);
 #2        assert(io_psram_data0==0);
           assert(io_psram_data1==1);
           assert(io_psram_data2==0);
           assert(io_psram_data3==1);
-#12       // 6 Waitcyles
+#2        assert(io_psram_data0===1'bZ);          
+          assert(io_psram_data1===1'bZ);          
+          assert(io_psram_data2===1'bZ);          
+          assert(io_psram_data3===1'bZ);
+#12       // 7 Waitcyles
 #4        // Read data
 #2        assert(U13_U25.psram_cs==1);
           assert(o_busy==0);
           assert(o_dataReady==1);
           assert(U13_U25.state==stateIdle);
 #20       assert(U13_U25.state==stateIdle);          
+#2000     assert(o_busy==0);
+          assert(o_dataReady==1);
 #2        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset); 
           $finish(0);
 end

@@ -10,7 +10,7 @@ Based on Steven Hugg: https://github.com/sehugg/fpga-examples
 */
 
 module syncGen(input clk, 
-               input reset, 
+               input logic reset, 
                output reg o_hsync, 
                output reg o_vsync, 
                output o_display_on, 

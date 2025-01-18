@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+  // SPDX-License-Identifier: MIT
 // Copyright (C)2024 Bernd Krekeler, Herne, Germany
 
 `ifndef MEMCTRL_H
@@ -31,7 +31,7 @@ typedef enum bit[7:0] {
 typedef enum reg[7:0] {
   enableQPIModeCmd=8'b00110101,
   SPIQuadWrite=8'b00111000,
-  SPIQuadRead=8'heb
+  SPIQuadRead=8'b111101011
 } QPICommands;
 
 typedef enum reg  {
@@ -46,16 +46,16 @@ typedef enum bit[1:0]  {
   XXX=3
 } Action;
 
- localparam WAITCYCLES = 6;
+ localparam WAITCYCLES = 7;
 
-module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
-                input wire reset,
-                input wire i_cs,    // 0-enable
-                input wire i_write, // 0-read, 1-write
-                input wire [23:0] i_address, // 24-bit address
+module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
+                input logic reset,
+                input logic i_cs,    // 0-enable
+                input logic i_write, // 0-read, 1-write
+                input logic [23:0] i_address, // 24-bit address
                 output wire o_psram_sclk,                
-                input wire [7:0] dataToWrite,
-                output wire [7:0] dataRead,
+                input  logic [7:0] i_dataToWrite,
+                output logic [7:0] o_dataRead,
                 inout wire io_psram_data0,
                 inout wire io_psram_data1,
                 inout wire io_psram_data2,
@@ -65,8 +65,9 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                 inout wire io_psram_data6,
                 inout wire io_psram_data7,            
                 output wire o_psram_cs,
-                output wire o_busy, // 1-Busy
-                output logic o_dataReady); 
+                output logic o_busy, // 1-Busy
+                output logic o_dataReady, // 1-ready);
+                output o_led); 
 
   reg [3:0] dataU7;
   reg [3:0] dataBufferU7;
@@ -78,24 +79,15 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
   reg [7:0] qpiCommand;
 
   /* Output */
-  reg oBusy;
-  assign o_busy=oBusy;
+  //reg oBusy;
+  //assign o_busy=oBusy;
 
-  //logic dataReady;
-  //assign o_dataReady=dataReady;
-  
   Action action;
-  
-  assign  dataRead[0]=o_dataReady ? byteToRead[0] : 1'bZ;
-  assign  dataRead[1]=o_dataReady ? byteToRead[1] : 1'bZ; 
-  assign  dataRead[2]=o_dataReady ? byteToRead[2] : 1'bZ; 
-  assign  dataRead[3]=o_dataReady ? byteToRead[3] : 1'bZ; 
-  assign  dataRead[4]=o_dataReady ? byteToRead[4] : 1'bZ; 
-  assign  dataRead[5]=o_dataReady ? byteToRead[5] : 1'bZ; 
-  assign  dataRead[6]=o_dataReady ? byteToRead[6] : 1'bZ; 
-  assign  dataRead[7]=o_dataReady ? byteToRead[7] : 1'bZ; 
 
-  
+  logic led;
+  //assign o_led=!led;
+  //assign o_led=!dataReady;
+
   reg [23:0] address;
 
   // Loops through 3-0 to reuse write state, writing 4x same byte
@@ -104,25 +96,24 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
   parameter LOW=1'b0;
   parameter HIGH=1'b1;
  
-  integer initDelayInClkCyles=15000; // 150us @ 100Mhz
-  integer delayCounter;
+  parameter initDelayInClkCyles=15000; // 150us @ 100Mhz
+  logic [15:0] delayCounter;
   
   StateMachine state, next;
     
   reg [7:0] byteToWrite;
-  reg [7:0] byteToRead;
-  
+    
   reg psram_cs;
   assign o_psram_cs= psram_cs;
   
   reg[5:0] shifter;
  
-  reg psram_sclk;
-  assign o_psram_sclk=i_clkRAM;
+  logic psram_sclk;
+  assign o_psram_sclk= reset ? i_clkRAM : 0;
 
   // Direction direction; // 0- in (read), 1-out (write)
   reg [7:0] direction;
-  logic csTriggered, csTriggeredOld;
+  logic csTriggeredOld;
 
   assign io_psram_data0=(direction[0]==1 ? dataU7[0] : 1'bZ);
   assign io_psram_data1=(direction[1]==1 ? dataU7[1] : 1'bZ);
@@ -134,7 +125,6 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
   assign io_psram_data6=(direction[6]==1 ? dataU9[2] : 1'bZ);
   assign io_psram_data7=(direction[7]==1 ? dataU9[3] : 1'bZ);
 
-  
   always_ff @(posedge i_clkRAM or negedge reset) 
     if (!reset) state<=stateXXX;
     else state<=next;  
@@ -146,16 +136,19 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
 
       stateXXX:               next=stateReset;
       
-      stateReset:
-                              next=delayAfterReset;
+      stateReset:             next=delayAfterReset;
+                              
       delayAfterReset:
-        if (delayCounter==0)  next=sendQPIEnable;
+        if (delayCounter==0) begin
+          if (!isInitialized) next=sendQPIEnable;
+          else                next=stateIdle;
+        end
         else                  next=delayAfterReset;        
-      
+  
       sendQPIEnable:      
-        if (shifter==8)       next=stateIdle;
-        else                  next=sendQPIEnable;
-    
+      if (shifter==8)       next=stateIdle;
+      else                  next=sendQPIEnable;
+  
       stateIdle: begin
         case (action)
           DONOTHING:          next=stateIdle;
@@ -182,7 +175,7 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
         else                    next=sendQPIAddress;
                                 
       readData:
-        if (shifter==14+WAITCYCLES+2) next=stateIdle;
+        if (shifter>15+WAITCYCLES) next=stateIdle;
         else                    next=readData;
 
       writeData:
@@ -192,93 +185,112 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
     endcase
   end
   
+  logic isInitialized=0;
 
   always_ff @(posedge i_clkRAM or negedge reset) begin
-    oBusy<=next!=stateIdle;
-    dataU7<=4'bZ;
-    dataU9<=4'bZ;
-    psram_cs<=HIGH;
-    direction<='0;
+  
     if (!reset) begin
-      oBusy<=1;
-      csTriggeredOld<=1;
-      csTriggered<=0;
-      o_dataReady<=0;
+      o_busy<=1;
+      dataU9<=4'b0;
+      led<=0;        
+      csTriggeredOld<=0;
+      action<=DONOTHING;
+      psram_cs=HIGH;
     end
     else begin
+      o_busy<= !(next==stateIdle && action==DONOTHING);
+      direction<='0;
+
       if (i_cs==0) begin
-        if (csTriggeredOld!=csTriggered) begin
-          oBusy<=1;
-          csTriggered<=csTriggered+1;
-          csTriggeredOld<=csTriggered+1;
-          shifter<=0;
-          if (i_write) begin
-              action<=DOWRITE;
-              qpiCommand<=SPIQuadWrite;
-              byteToWrite<=dataToWrite;
+        if (!o_busy) begin
+          if (csTriggeredOld==0) begin            
+            csTriggeredOld<=1;
+            shifter<=0;
+            if (i_write) begin
+                action<=DOWRITE;
+                qpiCommand<=SPIQuadWrite;
+                byteToWrite<=i_dataToWrite;
+                o_busy<=1;
+            end
+            else begin
+              action<=DOREAD;
+              qpiCommand<=SPIQuadRead;
+              o_busy<=1;
+            end
+            address<=i_address;
           end
-          else begin
-            action<=DOREAD;
-            qpiCommand<=SPIQuadRead;
-          end
-          address<=i_address;
         end
-      end 
-      else begin
-        csTriggered<=0;
-        csTriggeredOld<=~csTriggered;
       end
+      else csTriggeredOld<=0;
 
       case (next) 
         stateReset: begin
+          psram_cs=HIGH;
+          o_dataReady<=0;
+          action<=DONOTHING;
           delayCounter<=initDelayInClkCyles;
         end
 
         delayAfterReset: begin 
-          delayCounter<=delayCounter-1;
+          psram_cs=HIGH;
           qpiCommand<=enableQPIModeCmd;
           shifter<=0;
+          delayCounter<=delayCounter-1;
         end
 
         sendQPIEnable: begin
-          psram_cs<=LOW;
-          direction<=8'b00010001; // SI active only
+          psram_cs=LOW;
+          direction<=8'b00000001; // SI active only
           dataU7[0]<=qpiCommand[shifter^7];
           dataU9[0]<=qpiCommand[shifter^7];
           shifter<=shifter+1;        
         end    
 
         stateIdle: begin
-          psram_cs<=HIGH;
-          direction<=8'b00000000; // all 'Z'
+          isInitialized=1;
+          psram_cs=HIGH;
+          direction<=8'b0; // all 'Z', stay put
           case (action)
             DOWRITE: begin
               o_dataReady<=0;
               qpiCommand<=SPIQuadWrite;
-              shifter<=0;           
+              shifter<=0;   
+              psram_cs<=LOW;
             end
             DOREAD: begin
               o_dataReady<=0;
               qpiCommand<=SPIQuadRead;
               shifter<=0;                                     
+              psram_cs<=LOW;
             end
-            DONOTHING: 
-              ;
+            DONOTHING: ;
           endcase
         end
 
         sendQPIWriteCmd, 
         sendQPIReadCmd: begin
-          psram_cs<=LOW;
-          direction<=8'b00010001; // SI active only
-          dataU7[0]<=qpiCommand[shifter^7];
-          dataU9[0]<=qpiCommand[shifter^7];        
-          shifter<=shifter+1; 
+          psram_cs=LOW;
+          direction<=8'b00001111; // QPI enabled. Use all data lines to send EB (read) or 38 (write)
+          if (shifter<4) begin
+            //dataU7[3:0]<=qpiCommand[7:4];
+            dataU7[3]<=qpiCommand[7];
+            dataU7[2]<=qpiCommand[6];
+            dataU7[1]<=qpiCommand[5];
+            dataU7[0]<=qpiCommand[4];
+          end
+          else begin
+            //dataU7[3:0]<=qpiCommand[3:0];
+            dataU7[3]<=qpiCommand[3];
+            dataU7[2]<=qpiCommand[2];
+            dataU7[1]<=qpiCommand[1];
+            dataU7[0]<=qpiCommand[0];            
+          end
+          shifter<=shifter+4; 
         end
 
         sendQPIAddress: begin
-          psram_cs<=LOW;
-          direction<=8'b11111111; // all pins active
+          psram_cs=LOW;
+          direction<=8'b00001111; // all pins active
           case (shifter) 
             8:  begin
                   dataU7[0]<=address[20];
@@ -321,8 +333,8 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
         end
 
         writeData: begin
-          psram_cs<=LOW;
-          direction<=8'b11111111; // all pins active
+          psram_cs=LOW;
+          direction<=8'b00001111; // all pins active
           case (shifter) 
             14: begin
                   dataU7[0]<=byteToWrite[4];
@@ -336,32 +348,34 @@ module memCtrl( input wire i_clkRAM,  // RAM clock (100Mhz)
                   dataU7[2]<=byteToWrite[2];
                   dataU7[3]<=byteToWrite[3];
                   action<=DONOTHING;
+                  o_busy<=0;
                 end  
           endcase
-          shifter<=shifter+1;        
+          shifter<=shifter+1;      
         end
 
         /* We have to wait for the psram to fetch our data before we can
             actually read after having sent the address. */
 
         readData: begin
-          psram_cs<=LOW;
-          direction<=8'b11111111; // all pins active
+          psram_cs=LOW;
+          direction<=8'b0; // do not drive io_psram
           case (shifter) 
             14+WAITCYCLES: begin
-                  byteToRead[4]<=io_psram_data0;
-                  byteToRead[5]<=io_psram_data1;
-                  byteToRead[6]<=io_psram_data2;
-                  byteToRead[7]<=io_psram_data3;
+                  o_dataRead[4]<=io_psram_data0;
+                  o_dataRead[5]<=io_psram_data1;
+                  o_dataRead[6]<=io_psram_data2;
+                  o_dataRead[7]<=io_psram_data3;
                 end  
             15+WAITCYCLES: begin
-                  byteToRead[0]<=io_psram_data0;
-                  byteToRead[1]<=io_psram_data1;
-                  byteToRead[2]<=io_psram_data2;
-                  byteToRead[3]<=io_psram_data3;
+                  o_dataRead[0]<=io_psram_data0;
+                  o_dataRead[1]<=io_psram_data1;
+                  o_dataRead[2]<=io_psram_data2;
+                  o_dataRead[3]<=io_psram_data3;
                   action<=DONOTHING;
                   o_dataReady<=1;
-                end  
+                  o_busy<=0;
+                end 
 
             default: // Waitcyles
               direction<=8'b0; // all Z

@@ -43,44 +43,42 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output [3:0] o_red, 
             output [3:0] o_green, 
             output [3:0] o_blue,
+            output o_led
             );
 
   
   wire clkPhi0, clkPhi2;
-  wire clkSys;
+  logic clkSys;
  
   reg [15:0] addrBus; // out, address
   reg [23:0] addrBusMemCtrl; // out, address
-  wire [7:0] dataIn;  // write to memory
-  wire [7:0] dataOut; // read from memory
-  wire WE; // out, WriteEnable
+  logic [7:0] dataIn;  // write to memory
+  logic [7:0] dataOut; // read from memory
+  logic WE; // out, WriteEnable
   wire irq=0;
   wire rdy;
   wire nmi=0;
-  wire  writeToRam=0;
-  reg doWrite=0;
-  reg [7:0] dataToWrite;
-  reg [7:0] dataRead;
+  logic  writeToRam;
+  
+  logic [7:0] dataToWrite;
+  logic [7:0] dataRead;
   reg [31:0] looper;
   wire [3:0] deb;
   
-  assign writeToRam=doWrite;
 
   reg [7:0] debug_mem_state;
-  wire busy;
+  logic busy;
   reg dataAck;
-  wire memCtrlCE; // CE for memory controller    
+  logic CE; // CE for memory controller    
   reg stop;
   reg fpgaStart;  
   reg clkDot, clkVideo;
   reg clkRAM;
-  reg CE;
 
   logic rst;
   Color color;
   
-  
-  assign memCtrlCE=CE;
+    
   logic dataReady;
  
   CC_USR_RSTN usr_rstn_inst (
@@ -100,12 +98,12 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   memCtrl U13_U25(
     .i_clkRAM(clkSys), 
     .reset(rst), 
-    .i_cs(memCtrlCE), 
+    .i_cs(CE), 
     .i_write(writeToRam), 
     .i_address(addrBusMemCtrl), 
     .o_psram_sclk(o_psram_sclk),
-    .dataToWrite(dataToWrite), 
-    .dataRead(dataRead), 
+    .i_dataToWrite(dataToWrite), 
+    .o_dataRead(dataRead), 
     .io_psram_data0(io_psram_data0),
     .io_psram_data1(io_psram_data1),
     .io_psram_data2(io_psram_data2),
@@ -116,7 +114,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data5(io_psram_data7),
     .o_psram_cs(o_psram_cs),
     .o_busy(busy),
-    .o_dataReady(dataReady)
+    .o_dataReady(dataReady),
+    .o_led(o_led)
     );
   
    
@@ -150,7 +149,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
 
   logic cycle=0;
   
-  logic dataReady;
+  logic led;
+  assign o_led=!led;
+
   logic success;
 
   typedef enum bit[7:0] {
@@ -169,18 +170,26 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     if (!rst) state<=sstateXXX;
     else state<=next;  
 
+  logic [31:0] cntDelay;
+
   // next logic
   always_comb begin
     next=sstateXXX;
     case (state)
       sstateXXX: next=sstateReset;
-      sstateReset: if (cntCycleFast>64'd5000) next=sstateInitRAM;
-                   else next=sstateReset;
+      sstateReset: begin
+                     if (cntDelay>32'd50000) next=sstateInitRAM;
+                     else next=sstateReset;
+                   end
       sstateInitRAM: if (bytesWritten==0) next=sstateInitRAM;
                     else next=sstateReadRAM;
-      sstateReadRAM: if (bytesRead==0) next=sstateReadRAM;
-                    else if (byteRead==8'haa) next=sstateSuccess;
-                    else next=sstateFailure;
+      sstateReadRAM: if (bytesRead==0) begin
+                        next=sstateReadRAM;
+                     end
+                     else if (bytesRead>0) begin
+                       if (dataRead==8'haa/*204,221*/) next=sstateSuccess;
+                       else next=sstateFailure;
+                     end
       sstateSuccess: next=sstateSuccess;                   
       sstateFailure: next=sstateFailure;
     endcase
@@ -190,57 +199,54 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   logic [7:0] readRequested;
   logic [7:0] bytesRead;
   logic [7:0] byteRead;
-  reg [63:0] cntCycleMS;
-  
-  reg [63:0] cntCycleOld;
-
-  logic [63:0] cntCycleMS;
-  logic [63:0] cntCycleFast;
-  
-  always @(posedge clkSys) begin
-    cntCycleMS=cntCycle;
-    cntCycleFast=cntCycleMS;
-  end
 
   always_ff @(posedge clkSys or negedge rst) 
     if (!rst) begin
-      debugVIC<=red;
+      cntDelay<=0;
+      debugVIC<=yellow;
       bytesWritten<=0;
       bytesRead<=0;
+      byteRead<=0;
       readRequested<=0;
       CE<=1;
+      led<=0;
     end
     else begin   
-      CE<=1;
-      cntCycleOld<=cntCycleFast;
       case (next) 
         sstateInitRAM: begin
-            debugVIC<=yellow;
-            if (!busy && bytesWritten==0) begin
-              CE<=0;
-              doWrite<=1;
-              addrBusMemCtrl<=24'h00fffc;
-              dataToWrite<=8'haa;
-              bytesWritten<=1;
-            end
+          debugVIC<=gray;
+          if (!busy && bytesWritten==0) begin
+            CE<=0;
+            writeToRam<=1;
+            addrBusMemCtrl<=24'h00fffc;
+            dataToWrite<=8'haa;
+            bytesWritten<=1;
+          end
         end
         sstateReadRAM: begin
-            if (!busy && bytesRead==0 && readRequested==0) begin
-              readRequested<=1;
-              CE<=0;
-              doWrite<=0;
-              addrBusMemCtrl<=24'h00fffc;
-            end
-            else if (dataReady && readRequested && bytesRead==0) begin
+          if (CE==0) CE<=1;
+          else if (dataReady && !busy) begin
+              debugVIC<=blue;
               bytesRead<=1;
               byteRead<=dataRead;
+              led<=1;
+          end
+          else begin
+            if (!busy && !readRequested) begin
+              readRequested<=1;
+              CE<=0;
+              writeToRam<=0;
+              addrBusMemCtrl<=24'h00fffc;
             end
+          end
         end
+
         sstateSuccess: begin
           debugVIC<=green;
         end
 
         sstateReset: begin
+          cntDelay<=cntDelay+1;
           debugVIC<=navy;
           /*
           if debugVIC<=navy;
@@ -251,7 +257,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           debugVIC<=red;
         end
         
-        default: debugVIC<=gray;
+        default: debugVIC<=yellow;
       endcase
       /*
       if (cntCycleOld!=cntCycle) begin
@@ -282,6 +288,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         end
       end*/
     end
+
+/*
   logic _rdy;
   assign rdy=_rdy;
   
@@ -297,6 +305,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       doRead<=0;
       _rdy<=0;
       isRamInitialized<=0;
+      addrToRead<=0;
     end
     else begin cntCycle<=cntCycle+1;
     doRead<=!WE;
@@ -308,6 +317,6 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         16'hd020: success<=1;
       endcase
     end
-    end
+    end*/
 endmodule  
 `endif
