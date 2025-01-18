@@ -52,6 +52,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
  
   reg [15:0] addrBus; // out, address
   reg [23:0] addrBusMemCtrl; // out, address
+  reg [23:0] addressToTest; // out, address
   logic [7:0] dataIn;  // write to memory
   logic [7:0] dataOut; // read from memory
   logic WE; // out, WriteEnable
@@ -159,6 +160,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     sstateInitRAM=1,
     sstateReadRAM=2,
     sstateRun=3,
+    sstateRepeat=4,
     sstateFailure=90,
     sstateSuccess=98,
     sstateXXX=99
@@ -187,11 +189,14 @@ module gm64(input clk0, // 10Mhz coming from FPGA
                         next=sstateReadRAM;
                      end
                      else if (bytesRead>0) begin
-                       if (dataRead==8'h00/*204,221*/) next=sstateSuccess;
+                       if (byteRead==8'haa/*204,221*/) next=sstateSuccess;
                        else next=sstateFailure;
                      end
-      sstateSuccess: next=sstateSuccess;                   
+      sstateSuccess: if (!busy) next=sstateRepeat;                   
+                     else next=sstateSuccess;                   
       sstateFailure: next=sstateFailure;
+      sstateRepeat:  if (addressToTest>24'h03) next=sstateSuccess;
+                     else next=sstateInitRAM;
     endcase
   end
   
@@ -210,6 +215,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       readRequested<=0;
       CE<=1;
       led<=0;
+      addressToTest<=24'h1;
     end
     else begin   
       case (next) 
@@ -218,8 +224,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           if (!busy && bytesWritten==0) begin
             CE<=0;
             writeToRam<=1;
-            addrBusMemCtrl<=24'h00fffc;
-            dataToWrite<=8'h00;
+            addrBusMemCtrl<=addressToTest;
+            dataToWrite<=8'haa;
             bytesWritten<=1;
           end
         end
@@ -229,14 +235,13 @@ module gm64(input clk0, // 10Mhz coming from FPGA
               debugVIC<=blue;
               bytesRead<=1;
               byteRead<=dataRead;
-              led<=1;
           end
           else begin
             if (!busy && !readRequested) begin
               readRequested<=1;
               CE<=0;
               writeToRam<=0;
-              addrBusMemCtrl<=24'h00fffc;
+              addrBusMemCtrl<= addressToTest;
             end
           end
         end
@@ -244,6 +249,17 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         sstateSuccess: begin
           debugVIC<=green;
         end
+        
+        sstateRepeat: begin
+          CE<=1;
+          bytesWritten<=0;
+          bytesRead<=0;
+          byteRead<=0;
+          readRequested<=0;
+          led<=1;
+          if (addressToTest<=24'h03) addressToTest<=addressToTest+1;
+        end
+
 
         sstateReset: begin
           cntDelay<=cntDelay+1;
