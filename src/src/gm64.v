@@ -154,7 +154,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   assign o_led=!led;
 
   logic success;
-
+  logic [23:0] noAddressesToTest;
+  
   typedef enum bit[7:0] {
     sstateReset=0,
     sstateInitRAM=1,
@@ -195,7 +196,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       sstateSuccess: if (!busy) next=sstateRepeat;                   
                      else next=sstateSuccess;                   
       sstateFailure: next=sstateFailure;
-      sstateRepeat:  if (addressToTest>24'h03) next=sstateSuccess;
+      sstateRepeat:  if (addressToTest>noAddressesToTest) next=sstateSuccess;
                      else next=sstateInitRAM;
     endcase
   end
@@ -215,11 +216,13 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       readRequested<=0;
       CE<=1;
       led<=0;
+      noAddressesToTest=24'h100000; // We want to write and read this number of addresses
       addressToTest<=24'h1;
     end
     else begin   
       case (next) 
         sstateInitRAM: begin
+          led<=0;
           debugVIC<=gray;
           if (!busy && bytesWritten==0) begin
             CE<=0;
@@ -241,13 +244,14 @@ module gm64(input clk0, // 10Mhz coming from FPGA
               readRequested<=1;
               CE<=0;
               writeToRam<=0;
-              addrBusMemCtrl<= addressToTest;
+              addrBusMemCtrl<=addressToTest;
             end
           end
         end
 
         sstateSuccess: begin
           debugVIC<=green;
+          led<=1;
         end
         
         sstateRepeat: begin
@@ -256,8 +260,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           bytesRead<=0;
           byteRead<=0;
           readRequested<=0;
-          led<=1;
-          if (addressToTest<=24'h03) addressToTest<=addressToTest+1;
+          if (addressToTest<=noAddressesToTest) addressToTest<=addressToTest+1;
         end
 
 
