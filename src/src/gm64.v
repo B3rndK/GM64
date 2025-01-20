@@ -79,7 +79,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   logic rst;
   Color color;
   
-    
+  logic i_bank;
   logic dataReady;
  
   CC_USR_RSTN usr_rstn_inst (
@@ -102,6 +102,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .i_cs(CE), 
     .i_write(writeToRam), 
     .i_address(addrBusMemCtrl), 
+    .i_bank(i_bank),
     .o_psram_sclk(o_psram_sclk),
     .i_dataToWrite(dataToWrite), 
     .o_dataRead(dataRead), 
@@ -217,6 +218,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       bytesRead<=0;
       byteRead<=0;
       readRequested<=0;
+      i_bank<=1;
       CE<=1;
       led<=0;
       noAddressesToTest=24'd4096100; // We want to write and read this number of addresses

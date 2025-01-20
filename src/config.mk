@@ -54,13 +54,13 @@ all: synth impl jtag
 
 ## verilog simulation targets
 vlog_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.v $(CELLS_SYNTH)
+	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.v $(CELLS_SYNTH) -I ./ -I ./src
 
 synth_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.v $(CELLS_SYNTH)
+	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.v $(CELLS_SYNTH) -I ./ -I ./src
 
 impl_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.v $(CELLS_IMPL)
+	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.v $(CELLS_IMPL) -I ./ -I ./src
 
 .PHONY: %sim %sim.vvp
 
