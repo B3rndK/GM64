@@ -35,5 +35,7 @@ typedef enum bit[1:0]  {
   XXX=3
 } Action;
 
- localparam WAITCYCLES = 7;
+localparam WAITCYCLES = 7;
 
+`define LOW   1'b0;
+`define HIGH  1'b1;
