@@ -188,21 +188,21 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
 
       case (next) 
         stateReset: begin
-          psram_cs=`HIGH;
+          psram_cs<=`HIGH;
           o_dataReady<=0;
           action<=DONOTHING;
           delayCounter<=initDelayInClkCyles;
         end
 
         delayAfterReset: begin 
-          psram_cs=`HIGH;
+          psram_cs<=`HIGH;
           qpiCommand<=enableQPIModeCmd;
           shifter<=0;
           delayCounter<=delayCounter-1;
         end
 
         sendQPIEnable: begin
-          psram_cs=`LOW;
+          psram_cs<=`LOW;
           direction<=8'b00010001; // SI active only on both chips
           dataU7[0]<=qpiCommand[shifter^7];
           dataU9[0]<=qpiCommand[shifter^7];
@@ -247,7 +247,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         end
 
         sendQPIAddress: begin
-          psram_cs=`LOW;
+          psram_cs<=`LOW;
           direction<=8'b00001111; // all pins active
           if (i_bank) direction<=8'b11110000; // all pins active
           case (shifter) 
@@ -268,7 +268,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         end
 
         writeData: begin
-          psram_cs=`LOW;
+          psram_cs<=`LOW;
           direction<=8'b00001111; // all pins active
           if (i_bank) direction<=8'b11110000; // all pins active
           case (shifter) 
@@ -288,7 +288,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
             actually read after having sent the address. */
 
         readData: begin
-          psram_cs=`LOW;
+          psram_cs<=`LOW;
           direction<=8'b0; // do not drive io_psram
           case (shifter) 
             14+WAITCYCLES: begin
