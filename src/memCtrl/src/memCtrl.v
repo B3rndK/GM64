@@ -31,28 +31,23 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                 output logic o_dataReady, // 1-ready);
                 output o_led); 
 
+  parameter initDelayInClkCyles=15000; // 150us @ 100Mhz
+  
   reg [3:0] dataU7; // Bank 0
   reg [3:0] dataU9; // Bank 1
   reg [7:0] qpiCommand;
   
   Action action;
 
-  // Debugging only
+  // Use for debugging purposes only
   logic led;
   //assign o_led=!led;
 
   reg [23:0] address;
-
-  `define LOW   1'b0;
-  `define HIGH  1'b1;
- 
-  parameter initDelayInClkCyles=15000; // 150us @ 100Mhz
   logic [15:0] delayCounter;
-  
   StateMachine state, next;
-    
+   
   reg [7:0] byteToWrite;
-    
   reg psram_cs=1;
   reg psram_cs2=0;
   
@@ -154,10 +149,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       o_busy<=1;
       dataU7<=4'b0;
       dataU9<=4'b0;
-      led<=0;        
       csTriggeredOld<=0;
       action<=DONOTHING;
-      psram_cs=`HIGH;
+      psram_cs<=`HIGH;
     end
     else begin
       o_busy<= !(next==stateIdle && action==DONOTHING);
