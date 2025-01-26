@@ -28,7 +28,7 @@ module VIC6569(input clkSys,
   wire [9:0] o_hpos;
   wire [9:0] o_vpos;
 
-  wire clkHDMI;
+  logic clkHDMI;
 
   // Creating Phi0 clock for CPU 
   reg [5:0] cntPhi0;
@@ -38,9 +38,9 @@ module VIC6569(input clkSys,
   assign clkPhi2=~cntPhi0;
   assign clkHDMI=cntHDMI<2;
 
-  assign  o_red = (display_on) ? red : 6;
-  assign  o_green = (display_on) ? green : 6;
-  assign  o_blue = (display_on) ? blue  : 6;
+  assign  o_red = display_on ? red : 0;
+  assign  o_green = display_on ? green : 0;
+  assign  o_blue = display_on ? blue  : 0;
 
 
   syncGen sync_gen(
@@ -70,7 +70,7 @@ module VIC6569(input clkSys,
         4'b0101 : begin red<=0;green<=0;blue<=15; end
         default : begin red<=15;green<=15;blue<=15; end
       endcase
-      if (o_vpos<=20 || o_vpos>556) begin
+      if (o_vpos<=20 || o_vpos>470) begin
         red<=4;
         green<=8;       
         blue<=15;       
@@ -112,7 +112,7 @@ module VIC6569(input clkSys,
       cntHDMI<=1;
     end 
     else begin
-      if (cntHDMI==3) begin
+      if (cntHDMI==2) begin
         cntHDMI<=1;
       end
       else cntHDMI<=cntHDMI+1;

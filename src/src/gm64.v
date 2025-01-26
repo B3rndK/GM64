@@ -221,7 +221,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       i_bank<=1;
       CE<=1;
       led<=0;
-      noAddressesToTest=24'd4096100; // We want to write and read this number of addresses
+      noAddressesToTest=24'd4096000; // We want to write and read this number of addresses
       addressToTest<=24'h1;
     end
     else begin   
@@ -257,6 +257,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         sstateSuccess: begin
           CE<=1;
           debugVIC<=green;
+          led<=1;
         end
         
         sstateRepeat: begin
@@ -268,8 +269,10 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           if (addressToTest<=noAddressesToTest) addressToTest<=addressToTest+1;
         end
 
-        sstateFinal: led<=1;
-          
+        sstateFinal: begin
+          debugVIC<=green;
+          led<=1;
+        end
 
         sstateReset: begin
           cntDelay<=cntDelay+1;
@@ -280,7 +283,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         end
 
         sstateFailure: begin
-          debugVIC<=red;
+          led<=1;
+          if (addressToTest>2) debugVIC<=blue;
+          else debugVIC<=red;
         end
         
         default: debugVIC<=yellow;

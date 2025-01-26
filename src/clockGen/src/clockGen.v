@@ -13,6 +13,7 @@ parameter sysclk="49.26"; //49.26 We need at least 48 Mhz for the 'PSRAM race'..
 parameter referenceClk="10.0"; 	 // Reference clock is 10Mhz coming from FPGA
 
 wire clkSysPLL;
+wire usr_pll_lock_stdy, usr_pll_lock;
 
 CC_PLL #(
 	.REF_CLK(referenceClk), // reference input in MHz
@@ -20,9 +21,11 @@ CC_PLL #(
 	.PERF_MD("SPEED"), 	  // LOWPOWER, ECONOMY, SPEED
 	.LOW_JITTER(1),    			// 0: disable, 1: enable low jitter mode
 	.CI_FILTER_CONST(2), 		// default 
-  .CP_FILTER_CONST(4)  		// default 
+  .CP_FILTER_CONST(4),		// default 
+	.LOCK_REQ(1),
 	) pll_inst_clkdot (
-	.CLK_REF(clk10Mhz), .CLK0(clkSysPLL)
+	.CLK_REF(clk10Mhz), .USR_PLL_LOCKED(usr_pll_lock),	
+	.CLK0(clkSysPLL)
 );
 
 // Connect the sysclk to the global routing resources of the FPGA to ensure that all
