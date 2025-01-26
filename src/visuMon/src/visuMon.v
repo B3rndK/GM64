@@ -13,7 +13,7 @@
 module visuMon( input   logic i_clk25Mhz,
                 input   logic i_reset,
                 input   logic i_cs,    
-                input   debugInfo i_debugInfo,
+                input   DebugInfo i_debugInfo,
                 output  o_hsync, 
                 output  o_vsync, 
                 output  [3:0] o_red, 
@@ -21,7 +21,7 @@ module visuMon( input   logic i_clk25Mhz,
                 output  [3:0] o_blue); 
 
 
-debugInfo [0:63] _debugInfo;
+DebugInfo [0:63] _debugInfo;
 
 logic [3:0] _red;
 logic [3:0] _green;

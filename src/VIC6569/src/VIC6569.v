@@ -42,7 +42,6 @@ module VIC6569(input clkSys,
   assign  o_green = display_on ? green : 0;
   assign  o_blue = display_on ? blue  : 0;
 
-
   syncGen sync_gen(
     .clk(clkHDMI),
     .reset(reset),
