@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024, 2025 Bernd Krekeler, Herne, Germany
 
-typedef struct packed {
-
-  logic [5:0] ledNo;    // led to switch (1-64)
-  logic [11:0] color;     // color to choose rgb (4:4:4)
-  logic [1:0] status;   // 0- off, 1- on
-
-} DebugInfo;
+typedef struct packed  { // Going from highest bit (18) to lowest bit (0)
+  logic [6:0] ledNo;     // led to switch (1-64) 
+  logic [11:0] color;    // color to choose rgb (4:4:4)
+  logic status;          // 0- off, 1- on
+} debugInfo_t;
 
 // For easier reading
 typedef enum bit[11:0] {
@@ -25,3 +23,4 @@ typedef enum bit[11:0] {
   purple=12'b011100110111,
   white=12'b111111111111
 } Color;
+

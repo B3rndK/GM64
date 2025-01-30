@@ -13,7 +13,7 @@ OFLFLAGS =-b olimex_gatemateevb
 GTKW = /usr/bin/gtkwave
 IVL = iverilog
 VVP = vvp
-IVLFLAGS = -Winfloop -g2012 -gspecify -Ttyp
+IVLFLAGS = -Winfloop -g2012 -gspecify -Ttyp # -v #-delaborate
 
 ## simulation libraries
 CELLS_SYNTH = ~/GateMate/bin/yosys/share/gatemate/cells_sim.v
@@ -54,13 +54,13 @@ all: synth impl jtag
 
 ## verilog simulation targets
 vlog_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.v $(CELLS_SYNTH)  -I ./src 
+	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.sv $(CELLS_SYNTH)  -I ./src 
 
 synth_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.v $(CELLS_SYNTH) -I ./src
+	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.sv $(CELLS_SYNTH) -I ./src
 
 impl_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.v $(CELLS_IMPL) -I ./src
+	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.sv $(CELLS_IMPL) -I ./src
 
 .PHONY: %sim %sim.vvp
 

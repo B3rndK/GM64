@@ -11,7 +11,7 @@ logic cs;
 logic bank;
 logic [3:0] red, green, blue;
 logic hsync,vsync;
-DebugInfo _debugInfo;
+debugInfo_t _debugInfo;
 
 visuMon U1 (
   .i_clk25Mhz(clk), 
@@ -44,12 +44,14 @@ initial begin
 #20       reset=1;
           $display ("Reset removed.");
 #2        cs=0;
-          _debugInfo.ledNo=1;
-          _debugInfo.color=red;   
+          _debugInfo.ledNo=20;
+          _debugInfo.color=blue;   
           _debugInfo.status=1;   
-#2        assert(U1._debugInfo[0].ledNo==1);
-          assert(U1._debugInfo[0].color==red);
-          assert(U1._debugInfo[0].status==1);
+#2        
+          _debugInfo=U1.arrDebugInfo[19];
+          assert(_debugInfo.ledNo==1);
+          assert(_debugInfo.color==blue);
+          assert(_debugInfo.status==1);
 #2        $display("Finished: time=%3d, clk=%b",$time, clk); 
           $finish(0);
 end

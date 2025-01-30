@@ -13,7 +13,8 @@
 `include "../counter/src/counter.v"
 `include "../memCtrl/src/memCtrl.v"
 `include "../sketchpad/src/sketchpad.v"
-
+`include "../visuMon/src/visuMon.sv"
+/*
 typedef enum bit[3:0] {
   black=0,
   red=1,
@@ -23,7 +24,7 @@ typedef enum bit[3:0] {
   blue=5,
   gray=6
 } Color;
-
+*/
 
 module gm64(input clk0, // 10Mhz coming from FPGA
             input reset, 
@@ -46,7 +47,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output o_led
             );
 
-  
+  debugInfo_t debugInfo;
+
   wire clkPhi0, clkPhi2;
   logic clkSys;
  
@@ -119,7 +121,20 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_dataReady(dataReady),
     .o_led(o_led)
     );
-  
+
+  logic csVisuMon;
+  visuMon U99 ( .i_clk25Mhz(clkSys),
+                .i_reset(rst),
+                .i_cs(csVisuMon),    
+                .i_debugInfo(debugInfo),
+                .o_hsync(o_hsync), 
+                .o_vsync(o_vsync), 
+                .o_red(o_red), 
+                .o_green(o_green), 
+                .o_blue(o_blue),
+                .o_led(o_led));
+
+/*
    
   VIC6569 U19 (
     .clkSys(clkSys),
@@ -133,7 +148,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_blue(o_blue),
     .debugVIC(debugVIC) // testing only
   );
-
+*/
   cpu U7(.clk(clkPhi0), .reset(!rst), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
  
   reg [3:0] debugVIC;
@@ -152,7 +167,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   logic cycle=0;
   
   logic led;
-  assign o_led=!led;
+  //assign o_led=!led;
 
   logic success;
   logic [23:0] noAddressesToTest;
@@ -223,8 +238,14 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       led<=0;
       noAddressesToTest=24'd4096000; // We want to write and read this number of addresses
       addressToTest<=24'h1;
+      debugInfo.ledNo<=1;
+      debugInfo.color<=blue;
+      debugInfo.status<=1;
+      csVisuMon<=0;
     end
     else begin   
+      csVisuMon<=1;
+
       case (next) 
         sstateInitRAM: begin
           debugVIC<=gray;
@@ -271,19 +292,17 @@ module gm64(input clk0, // 10Mhz coming from FPGA
 
         sstateFinal: begin
           debugVIC<=green;
-          led<=1;
         end
 
         sstateReset: begin
           cntDelay<=cntDelay+1;
-          debugVIC<=navy;
+          debugVIC<=red;
           /*
           if debugVIC<=navy;
           else debugVIC<=gray;*/
         end
 
         sstateFailure: begin
-          led<=1;
           if (addressToTest>2) debugVIC<=blue;
           else debugVIC<=red;
         end
