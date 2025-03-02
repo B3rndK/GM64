@@ -83,8 +83,8 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     sendQPIEnable:    psram_cs2=1;
     sendQPIWriteCmd:  psram_cs2=1;
     sendQPIReadCmd:   psram_cs2=1;
-    default:
-                      psram_cs2=0;
+    default:          psram_cs2=0;
+                      
    endcase
 
   // next logic
@@ -93,9 +93,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     case (state)
 
       stateXXX:               next=stateReset;
-      
+
       stateReset:             next=delayAfterReset;
-                              
+
       delayAfterReset:
         if (delayCounter==0) begin
           if (!isInitialized) next=sendQPIEnable;
@@ -140,12 +140,22 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         if (shifter==16)        next=stateIdle;
         else                    next=writeData;
 
+      default:                  next=stateXXX;
     endcase
   end
   
   always_ff @(posedge i_clkRAM or negedge reset) begin
   
     if (!reset) begin
+      isInitialized<=0;
+      delayCounter<=0;
+      direction<=0;
+      o_dataRead<=0;
+      byteToWrite<=0;
+      shifter<=0;
+      o_dataReady<=0;
+      address<=0;
+      qpiCommand<=0;
       o_busy<=1;
       dataU7<=4'b0;
       dataU9<=4'b0;
@@ -221,6 +231,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
               psram_cs<=`LOW;
             end
             DONOTHING: ;
+            default: ;
           endcase
         end
 
@@ -320,8 +331,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
             default: // Waitcyles
               direction<=8'b0; // all Z
           endcase
-          shifter<=shifter+1;        
+          shifter<=shifter+1;               
         end
+        default: ;        
       endcase
     end
   end

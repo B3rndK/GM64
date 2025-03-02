@@ -4,16 +4,16 @@
 `ifndef GM64_H
 `define GM64_H
 
-`include "../clockGen/src/clockGen.v"
-`include "../syncGen/src/syncGen.v"
-`include "../VIC6569/src/VIC6569.v"
-`include "../reset/src/reset.v"
-`include "../MOS6502/src/alu.v"
-`include "../MOS6502/src/cpu.v"
-`include "../counter/src/counter.v"
-`include "../memCtrl/src/memCtrl.v"
-`include "../sketchpad/src/sketchpad.v"
-`include "../visuMon/src/visuMon.sv"
+`include "clockGen.sv"
+`include "syncGen.v"
+`include "VIC6569.v"
+`include "reset.v"
+//`include "MOS6502/src/alu.v"
+//`include "MOS6502/src/cpu.v"
+`include "counter.v"
+`include "memCtrl.v"
+`include "sketchpad.v"
+`include "visuMon.sv"
 /*
 typedef enum bit[3:0] {
   black=0,
@@ -46,6 +46,26 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output [3:0] o_blue,
             output o_led
             );
+
+// Internal signals
+logic psram_data0;
+logic psram_data1;
+logic psram_data2;
+logic psram_data3;
+logic psram_data4;
+logic psram_data5;
+logic psram_data6;
+logic psram_data7;
+
+// Assignments
+assign io_psram_data0 = psram_data0;
+assign io_psram_data1 = psram_data1;
+assign io_psram_data2 = psram_data2;
+assign io_psram_data3 = psram_data3;
+assign io_psram_data4 = psram_data4;
+assign io_psram_data5 = psram_data5;
+assign io_psram_data6 = psram_data6;
+assign io_psram_data7 = psram_data7;
 
   debugInfo_t debugInfo;
 
@@ -83,11 +103,11 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   
   logic i_bank;
   logic dataReady;
- 
+
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
-  
+
   reset U20 (.clk(clk0), 
              .fpga_but1(fpga_but1), 
              .fpgaStart(fpgaStart), 
@@ -108,14 +128,14 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .o_psram_sclk(o_psram_sclk),
     .i_dataToWrite(dataToWrite), 
     .o_dataRead(dataRead), 
-    .io_psram_data0(io_psram_data0),
-    .io_psram_data1(io_psram_data1),
-    .io_psram_data2(io_psram_data2),
-    .io_psram_data3(io_psram_data3),
-    .io_psram_data4(io_psram_data4),
-    .io_psram_data5(io_psram_data5),
-    .io_psram_data4(io_psram_data6),
-    .io_psram_data5(io_psram_data7),
+    .io_psram_data0(psram_data0),
+    .io_psram_data1(psram_data1),
+    .io_psram_data2(psram_data2),
+    .io_psram_data3(psram_data3),
+    .io_psram_data4(psram_data4),
+    .io_psram_data5(psram_data5),
+    .io_psram_data6(psram_data6),
+    .io_psram_data7(psram_data7),
     .o_psram_cs(o_psram_cs),
     .o_busy(busy),
     .o_dataReady(dataReady),
@@ -123,7 +143,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     );
 
   logic csVisuMon;
-  visuMon U99 ( .i_clk25Mhz(clkSys),
+  visuMon U99 ( .i_clkVideo(clkSys),
                 .i_reset(rst),
                 .i_cs(csVisuMon),    
                 .i_debugInfo(debugInfo),
@@ -149,13 +169,19 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .debugVIC(debugVIC) // testing only
   );
 */
-  cpu U7(.clk(clkPhi0), .reset(!rst), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
+  // cpu U7(.clk(clkPhi0), .reset(!rst), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
  
   reg [3:0] debugVIC;
   reg [3:0] nextCol;
   reg [24:0] coun;
   reg [63:0] cntCycle;
   reg [63:0] cntCycleOld;
+
+  logic [7:0] bytesWritten;
+  logic readRequested;
+  logic [7:0] bytesRead;
+  logic [7:0] byteRead;
+
 /*
   // Testing
   sketchpad SKETCH (
@@ -197,12 +223,16 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     next=sstateXXX;
     case (state)
       sstateXXX: next=sstateReset;
-      sstateReset: begin
-                     if (cntDelay>32'd50000) next=sstateInitRAM;
-                     else next=sstateReset;
+      sstateReset: begin                   
+                    if (cntDelay>32'd50000) next=sstateInitRAM;
+                    else next=sstateReset;
                    end
-      sstateInitRAM: if (bytesWritten==0) next=sstateInitRAM;
-                    else next=sstateReadRAM;
+      sstateInitRAM: if (bytesWritten==0) begin
+                      next=sstateInitRAM;
+                    end
+                    else begin
+                      next=sstateReadRAM;
+                    end
       sstateReadRAM: if (bytesRead==0) begin
                         next=sstateReadRAM;
                      end
@@ -216,19 +246,21 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       sstateRepeat:  if (addressToTest>noAddressesToTest) next=sstateFinal;
                      else next=sstateInitRAM;
 
-      sstateFinal:   next=sstateFinal;
+      sstateFinal:    next=sstateFinal;
+      default:        next=sstateXXX;
     endcase
   end
   
-  logic [7:0] bytesWritten;
-  logic [7:0] readRequested;
-  logic [7:0] bytesRead;
-  logic [7:0] byteRead;
-
   always_ff @(posedge clkSys or negedge rst) 
     if (!rst) begin
+      csVisuMon<=1;
+      debugInfo[18:0]<='b0;
+      addrBusMemCtrl<=0;
+      writeToRam<=0;
+      dataToWrite<=0;
+      
       cntDelay<=0;
-      debugVIC<=yellow;
+      debugVIC<=4;
       bytesWritten<=0;
       bytesRead<=0;
       byteRead<=0;
@@ -238,17 +270,15 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       led<=0;
       noAddressesToTest=24'd4096000; // We want to write and read this number of addresses
       addressToTest<=24'h1;
-      debugInfo.ledNo<=1;
-      debugInfo.color<=blue;
-      debugInfo.status<=1;
-      csVisuMon<=0;
     end
     else begin   
-      csVisuMon<=1;
-
       case (next) 
         sstateInitRAM: begin
-          debugVIC<=gray;
+          debugInfo.ledNo<=1;
+          debugInfo.color<=Red;
+          debugInfo.status<=1;
+          csVisuMon<=0;
+
           if (!busy && bytesWritten==0) begin
             CE<=0;
             writeToRam<=1;
@@ -258,10 +288,15 @@ module gm64(input clk0, // 10Mhz coming from FPGA
           end
         end
         sstateReadRAM: begin
+          debugInfo.ledNo<=2;
+          debugInfo.color<=Green;
+          debugInfo.status<=1;
+          csVisuMon<=0;
+          
           led<=0;
           if (CE==0) CE<=1;
           else if (dataReady && !busy) begin
-              debugVIC<=blue;
+              debugVIC<=2;
               bytesRead<=1;
               byteRead<=dataRead;
           end
@@ -276,8 +311,13 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         end
 
         sstateSuccess: begin
+          debugInfo.ledNo<=3;
+          debugInfo.color<=Blue;
+          debugInfo.status<=1;
+          csVisuMon<=0;
+          
           CE<=1;
-          debugVIC<=green;
+          debugVIC<=3;
           led<=1;
         end
         
@@ -291,23 +331,20 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         end
 
         sstateFinal: begin
-          debugVIC<=green;
+          debugVIC<=3;
         end
 
         sstateReset: begin
           cntDelay<=cntDelay+1;
-          debugVIC<=red;
-          /*
-          if debugVIC<=navy;
-          else debugVIC<=gray;*/
+          debugVIC<=1;
         end
 
         sstateFailure: begin
-          if (addressToTest>2) debugVIC<=blue;
-          else debugVIC<=red;
+          if (addressToTest>2) debugVIC<=2;
+          else debugVIC<=1;
         end
         
-        default: debugVIC<=yellow;
+        default: debugVIC<=4;
       endcase
       /*
       if (cntCycleOld!=cntCycle) begin

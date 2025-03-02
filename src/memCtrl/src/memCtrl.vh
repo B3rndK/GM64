@@ -4,17 +4,12 @@ typedef enum bit[7:0] {
   sendQPIEnable=3,
   stateIdle=10,
   sendQPIWriteCmd=11,
-  
   sendQPIAddress=12,
   writeData=20,
-
   sendQPIReadCmd=60,
   readData=61,
-
-  waitCycle=80,
-
-  stateXXX=92
  
+  stateXXX=92
 } StateMachine;
 
 typedef enum reg[7:0] {

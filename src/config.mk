@@ -5,18 +5,26 @@ EXE =
 SRC=~/git/GM64
 
 ## toolchain
-YOSYS = ~/GateMate/bin/yosys/yosys$(EXE)
+OSS=~/Applications/oss-cad-suite/bin
+YOSYS = $(OSS)/yosys$(EXE)
+#YOSYS = ~/GateMate/bin/yosys/yosys$(EXE)
 PR    = ~/GateMate/bin/p_r/p_r$(EXE)
-OFL   = ~/git/openFPGALoader/build/openFPGALoader$(EXE)
+# OFL   = ~/git/openFPGALoader/build/openFPGALoader$(EXE)
+OFL = $(OSS)/openFPGALoader$(EXE)
 OFLFLAGS =-b olimex_gatemateevb
 
 GTKW = /usr/bin/gtkwave
+IVL_SVL = $(OSS)/verilator
 IVL = iverilog
 VVP = vvp
-IVLFLAGS = -Winfloop -g2012 -gspecify -Ttyp # -v #-delaborate
+IVLFLAGS = -Winfloop -g2012 -gspecify -Ttyp -I ./ -I ./src -I ./src/src -I ../src/memCtrl/src -I ../src/clockGen/src -I ../src/visuMon/src ../src/VisuMon # -v #-delaborate
+IVL_SVL_FLAGS= -binary --top gm64_tb --trace-fst --assert -I./reset/src -I./sketchpad/src -I./counter/src -I./clockGen/src/ -I./memCtrl/src/ -I./visuMon/src/ -I./ -I./src -I./src/src -I./visuMon/src -I./visuMon/syncGen/src -I./VIC6569/src
+SV_INCLUDES = -IclockGen/src -IsyncGen/src -IVIC6569/src -Ireset/src -Icounter/src -ImemCtrl/src -Isketchpad/src -IvisuMon/src
 
 ## simulation libraries
 CELLS_SYNTH = ~/GateMate/bin/yosys/share/gatemate/cells_sim.v
+CELLS_SYNTH_SV = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_bb.v #/home/bernd/GateMate/bin/yosys/share/gatemate/cells_sim.v 
+CELLS_SIM_SV =	/home/bernd/GateMate/bin/yosys/share/gatemate/cells_sim.v 
 CELLS_IMPL = ~/GateMate/bin/p_r/cpelib.v
 
 ## target sources
@@ -29,9 +37,20 @@ RM = find $(SRC) -type f -name
 ## toolchain targets
 synth: synth_vlog
 
-synth_vlog: $(VLOG_SRC)
-	$(YOSYS) -ql log/synth.log -p 'read -sv $^; synth_gatemate -top $(TOP) -nomx8 -vlog net/$(TOP)_synth.v'
+synth_sv: synth_svlog
 
+
+# SYNTHESIS
+
+# System verilog
+synth_svlog: $(VLOG_SRC) #
+	$(YOSYS) -m slang -p 'read_slang --top gm64 $(SV_INCLUDES) $(CELLS_SYNTH_SV) $^ ;  synth_gatemate  -nomx8 -vlog net/$(TOP)_synth.v stat' 
+
+# Verilog
+synth_vlog: $(VLOG_SRC)
+	$(YOSYS) -ql log/synth.log -p 'read_verilog -sv $(SV_INCLUDES) $^; synth_gatemate -top $(TOP) -nomx8 -vlog net/$(TOP)_synth.v'
+
+# VHDL
 synth_vhdl: $(VHDL_SRC)
 	$(YOSYS) -ql log/synth.log -p 'ghdl --warn-no-binding -C --ieee=synopsys $^ -e $(TOP); synth_gatemate -top $(TOP) -nomx8 -vlog net/$(TOP)_synth.v'
 
@@ -52,15 +71,21 @@ spi-flash:
 
 all: synth impl jtag
 
-## verilog simulation targets
+all_sv: synth_sv impl jtag
+
+## verilator system verilog simulation targets  
+vlog_sim_sv.vvp:
+	$(IVL_SVL) $(CELLS_SYNTH) $(CELLS_SYNTH_SV) $(IVL_SVL_FLAGS)  $(VLOG_SRC) ./sim/gm64_tb.sv
+
+## icarus verilog simulation targets
 vlog_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.sv $(CELLS_SYNTH)  -I ./src 
+	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.sv $(CELLS_SYNTH)
 
 synth_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.sv $(CELLS_SYNTH) -I ./src
+	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.sv $(CELLS_SYNTH) -I ./ -I ./src -I ./src/src -I ../src/memCtrl/src -I ../src/visuMon/src
 
 impl_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.sv $(CELLS_IMPL) -I ./src
+	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.sv $(CELLS_IMPL) -I ./ -I ./src -I ./src/src -I ../src/memCtrl/src -I ../src/visuMon/src
 
 .PHONY: %sim %sim.vvp
 

@@ -41,6 +41,8 @@ module counter( input reg i_clk,
   always_ff @(posedge i_clk or negedge i_reset) begin
     state<=nextState;
     if (!i_reset) begin
+      startValue<=0;
+      mode<=CONTINUOUS;
       currentValue<=0;
       state<=csIdle;
     end    

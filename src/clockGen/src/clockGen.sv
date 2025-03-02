@@ -7,7 +7,7 @@
 /* Main clock generation... */
 
 module clockGen(input  clk10Mhz,
-								output logic clkSys);
+   							output logic clkSys);
 								
 parameter sysclk="49.26"; //49.26 We need at least 48 Mhz for the 'PSRAM race'...sysclk/50 will provide us 0.9582 (PAL) phi
 parameter referenceClk="10.0"; 	 // Reference clock is 10Mhz coming from FPGA
@@ -22,11 +22,20 @@ CC_PLL #(
 	.LOW_JITTER(1),    			// 0: disable, 1: enable low jitter mode
 	.CI_FILTER_CONST(2), 		// default 
   .CP_FILTER_CONST(4),		// default 
-	.LOCK_REQ(1),
+	.LOCK_REQ(1)
 	) pll_inst_clkdot (
 	.CLK_REF(clk10Mhz), .USR_PLL_LOCKED(usr_pll_lock),	
-	.CLK0(clkSysPLL)
+	.USR_CLK_REF(),
+	.CLK_FEEDBACK(),
+	.USR_LOCKED_STDY_RST(),
+	.USR_PLL_LOCKED_STDY(),
+	.CLK0(clkSysPLL),
+	.CLK90(),
+	.CLK180(),
+	.CLK270(),
+	.CLK_REF_OUT()	
 );
+
 
 // Connect the sysclk to the global routing resources of the FPGA to ensure that all
 // modules get the signal (nearly...) at the same time

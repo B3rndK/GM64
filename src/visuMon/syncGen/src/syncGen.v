@@ -3,6 +3,8 @@
 `ifndef SYNCGEN_H
 `define SYNCGEN_H
 
+`timescale 10us / 1us
+
 /*
 Video sync generator, used to drive a VGA monitor.
 Timing from: https://en.wikipedia.org/wiki/Video_Graphics_Array
