@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024, 2025 Bernd Krekeler, Herne, Germany
+`ifndef VISUMON_H
+`define VISUMON_H
 
 // For easier reading
 typedef enum bit[11:0] {
@@ -23,3 +25,5 @@ typedef struct packed  {  // Going from highest bit (18) to lowest bit (0)
   Color color;            // color to choose rgb (4:4:4)
   logic status;           // 0- off, 1- on
 } debugInfo_t;
+
+`endif

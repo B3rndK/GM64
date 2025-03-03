@@ -4,16 +4,16 @@
 `ifndef GM64_H
 `define GM64_H
 
-`include "clockGen.sv"
-`include "syncGen.v"
-`include "VIC6569.v"
-`include "reset.v"
+//`include "clockGclockGen.sv"
+//`include "syncGen.v"
+//`include "VIC6569.v"
+//`include "reset.v"
 //`include "MOS6502/src/alu.v"
 //`include "MOS6502/src/cpu.v"
-`include "counter.v"
-`include "memCtrl.v"
-`include "sketchpad.v"
-`include "visuMon.sv"
+//`include "counter.v"
+//`include "memCtrl.v"
+//`include "sketchpad.v"
+`include "../visuMon/src/visuMon.svh"
 /*
 typedef enum bit[3:0] {
   black=0,
@@ -47,26 +47,51 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             output o_led
             );
 
-// Internal signals
-logic psram_data0;
-logic psram_data1;
-logic psram_data2;
-logic psram_data3;
-logic psram_data4;
-logic psram_data5;
-logic psram_data6;
-logic psram_data7;
+  debugInfo_t debugInfo;
 
-// Assignments
-assign io_psram_data0 = psram_data0;
-assign io_psram_data1 = psram_data1;
-assign io_psram_data2 = psram_data2;
-assign io_psram_data3 = psram_data3;
-assign io_psram_data4 = psram_data4;
-assign io_psram_data5 = psram_data5;
-assign io_psram_data6 = psram_data6;
-assign io_psram_data7 = psram_data7;
+  var led;
+  var einaus;
+  assign o_led=einaus;
+  int counter;
+  wire clkSys;
 
+  clockGen U31  (.clk10Mhz (clk0),
+                 .clkSys (clkSys)
+                );
+
+  logic csVisuMon;
+  visuMon U99 ( .i_clkVideo(clkSys),
+                .i_reset(1),
+                .i_cs(csVisuMon),    
+                .i_debugInfo(debugInfo),
+                .o_hsync(o_hsync), 
+                .o_vsync(o_vsync), 
+                .o_red(o_red), 
+                .o_green(o_green), 
+                .o_blue(o_blue),
+                .o_led(o_led));
+
+  always @(posedge clk0, negedge fpga_but1)
+  begin
+    if (!fpga_but1) begin
+      counter=1;
+      debugInfo.ledNo=1;
+      debugInfo.color=Green;
+      debugInfo.status=1;
+      csVisuMon=0;
+    end
+    else begin
+       csVisuMon=1;
+       counter++;
+       if (counter>10) counter=1;
+       einaus=counter % 5;
+    end
+
+  end
+
+endmodule  
+`endif
+/*
   debugInfo_t debugInfo;
 
   wire clkPhi0, clkPhi2;
@@ -85,9 +110,7 @@ assign io_psram_data7 = psram_data7;
   
   logic [7:0] dataToWrite;
   logic [7:0] dataRead;
-  reg [31:0] looper;
   wire [3:0] deb;
-  
 
   reg [7:0] debug_mem_state;
   logic busy;
@@ -128,14 +151,14 @@ assign io_psram_data7 = psram_data7;
     .o_psram_sclk(o_psram_sclk),
     .i_dataToWrite(dataToWrite), 
     .o_dataRead(dataRead), 
-    .io_psram_data0(psram_data0),
-    .io_psram_data1(psram_data1),
-    .io_psram_data2(psram_data2),
-    .io_psram_data3(psram_data3),
-    .io_psram_data4(psram_data4),
-    .io_psram_data5(psram_data5),
-    .io_psram_data6(psram_data6),
-    .io_psram_data7(psram_data7),
+    .io_psram_data0(io_psram_data0),
+    .io_psram_data1(io_psram_data1),
+    .io_psram_data2(io_psram_data2),
+    .io_psram_data3(io_psram_data3),
+    .io_psram_data4(io_psram_data4),
+    .io_psram_data5(io_psram_data5),
+    .io_psram_data6(io_psram_data6),
+    .io_psram_data7(io_psram_data7),
     .o_psram_cs(o_psram_cs),
     .o_busy(busy),
     .o_dataReady(dataReady),
@@ -154,8 +177,6 @@ assign io_psram_data7 = psram_data7;
                 .o_blue(o_blue),
                 .o_led(o_led));
 
-/*
-   
   VIC6569 U19 (
     .clkSys(clkSys),
     .reset(rst),
@@ -168,12 +189,12 @@ assign io_psram_data7 = psram_data7;
     .o_blue(o_blue),
     .debugVIC(debugVIC) // testing only
   );
-*/
+
   // cpu U7(.clk(clkPhi0), .reset(!rst), .AB(addrBus), .DI(dataIn), .DO(dataOut), .WE(WE), .IRQ(irq), .NMI(nmi), .RDY(rdy));
- 
+
   reg [3:0] debugVIC;
   reg [3:0] nextCol;
-  reg [24:0] coun;
+  //reg [24:0] counter;
   reg [63:0] cntCycle;
   reg [63:0] cntCycleOld;
 
@@ -182,15 +203,15 @@ assign io_psram_data7 = psram_data7;
   logic [7:0] bytesRead;
   logic [7:0] byteRead;
 
-/*
+
   // Testing
   sketchpad SKETCH (
      .clk(clk0), 
      .fpga_but1(fpga_but1),
      .signal(buttonPressed)
-  );*/
+  );
 
-  logic cycle=0;
+  logic cycle;
   
   logic led;
   //assign o_led=!led;
@@ -210,44 +231,44 @@ assign io_psram_data7 = psram_data7;
     sstateXXX=99
   } SStateMachine;
 
-  SStateMachine state, next;
+  SStateMachine state;
+  SStateMachine next2;
 
   always_ff @(posedge clkSys or negedge rst) 
     if (!rst) state<=sstateXXX;
-    else state<=next;  
+    else state<=next2;  
 
   logic [31:0] cntDelay;
 
   // next logic
   always_comb begin
-    next=sstateXXX;
     case (state)
-      sstateXXX: next=sstateReset;
+      sstateXXX: next2=sstateReset;
       sstateReset: begin                   
-                    if (cntDelay>32'd50000) next=sstateInitRAM;
-                    else next=sstateReset;
+                    if (cntDelay>32'd50000) next2=sstateInitRAM;
+                    else next2=sstateReset;
                    end
       sstateInitRAM: if (bytesWritten==0) begin
-                      next=sstateInitRAM;
+                      next2=sstateInitRAM;
                     end
                     else begin
-                      next=sstateReadRAM;
+                      next2=sstateReadRAM;
                     end
       sstateReadRAM: if (bytesRead==0) begin
-                        next=sstateReadRAM;
+                        next2=sstateReadRAM;
                      end
                      else if (bytesRead>0) begin
-                       if (byteRead==8'haa/*204,221*/) next=sstateSuccess;
-                       else next=sstateFailure;
+                       if (byteRead==8'haa) next2=sstateSuccess;
+                       else next2=sstateFailure;
                      end
-      sstateSuccess: if (!busy) next=sstateRepeat;                   
-                     else next=sstateSuccess;                   
-      sstateFailure: next=sstateFailure;
-      sstateRepeat:  if (addressToTest>noAddressesToTest) next=sstateFinal;
-                     else next=sstateInitRAM;
+      sstateSuccess: if (!busy) next2=sstateRepeat;                   
+                     else next2=sstateSuccess;                   
+      sstateFailure: next2=sstateFailure;
+      sstateRepeat:  if (addressToTest>noAddressesToTest) next2=sstateFinal;
+                     else next2=sstateInitRAM;
 
-      sstateFinal:    next=sstateFinal;
-      default:        next=sstateXXX;
+      sstateFinal:    next2=sstateFinal;
+      //default:        next2=sstateXXX;
     endcase
   end
   
@@ -272,7 +293,7 @@ assign io_psram_data7 = psram_data7;
       addressToTest<=24'h1;
     end
     else begin   
-      case (next) 
+      case (next2) 
         sstateInitRAM: begin
           debugInfo.ledNo<=1;
           debugInfo.color<=Red;
@@ -292,7 +313,6 @@ assign io_psram_data7 = psram_data7;
           debugInfo.color<=Green;
           debugInfo.status<=1;
           csVisuMon<=0;
-          
           led<=0;
           if (CE==0) CE<=1;
           else if (dataReady && !busy) begin
@@ -315,7 +335,6 @@ assign io_psram_data7 = psram_data7;
           debugInfo.color<=Blue;
           debugInfo.status<=1;
           csVisuMon<=0;
-          
           CE<=1;
           debugVIC<=3;
           led<=1;
@@ -345,7 +364,7 @@ assign io_psram_data7 = psram_data7;
         end
         
         default: debugVIC<=4;
-      endcase
+      endcase*/
       /*
       if (cntCycleOld!=cntCycle) begin
         if (doRead) begin    
@@ -373,8 +392,8 @@ assign io_psram_data7 = psram_data7;
         else begin
           if (success) debugVIC<=green;
         end
-      end*/
-    end
+      end
+    end*/
 
 /*
   logic _rdy;
@@ -405,5 +424,4 @@ assign io_psram_data7 = psram_data7;
       endcase
     end
     end*/
-endmodule  
-`endif
+

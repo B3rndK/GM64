@@ -89,9 +89,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
 
   // next logic
   always_comb begin
-    next=stateXXX;
     case (state)
-
       stateXXX:               next=stateReset;
 
       stateReset:             next=delayAfterReset;

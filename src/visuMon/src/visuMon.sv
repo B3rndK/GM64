@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024, 2025 Bernd Krekeler, Herne, Germany
 
-`ifndef VISUMON_H
-`define VISUMON_H
+`ifndef VISUMON
+`define VISUMON
 
-`include "../syncGen/src/syncGen.v"
+//`include "../syncGen/src/syncGen.v"
 `include "visuMon.svh"
 
 /* Tool to simulate 64 LEDs using a simple VGA monitor display. 
@@ -19,7 +19,7 @@ module visuMon( input   logic i_clkVideo,
                 output  [3:0] o_red, 
                 output  [3:0] o_green, 
                 output  [3:0] o_blue,
-                output  o_led);
+                inout   o_led);
 
 debugInfo_t arrDebugInfo[63];
 
@@ -61,10 +61,11 @@ parameter MAX_LEDS_Y=8;
 parameter TOTAL_LEDSIZE_X=LEDSIZE_X+X_OFFSET;
 parameter TOTAL_LEDSIZE_Y=LEDSIZE_Y+Y_OFFSET;  
 
+logic reset;
 
 syncGen sync_gen(
     .clk(i_clkVideo),
-    .reset(i_reset),
+    .reset(reset),
     .o_hsync(o_hsync),
     .o_vsync(o_vsync),
     .o_display_on(_display_on),
@@ -94,11 +95,13 @@ always_comb begin
   curY=o_vpos;
   ledInX='x;
   ledInY='x;
-  _red=4'b0000;
+  _red=4'b1000;
   _green=0;       
   _blue=0;
   //_status=0;
-  debug=arrDebugInfo[0];
+  debug=arrDebugInfo[1];
+  if (reset==0) reset=1;
+  else reset=1;
   /*
   noOnX=99;
   noOnY=99;
@@ -112,6 +115,9 @@ always_comb begin
     noOnY=(curY/TOTAL_LEDSIZE_Y);
   end
   if (noOnX<99 && noOnY<99) iLed=noOnX*noOnY;*/
+  _red=8;           
+  _green=2;       
+  _blue=2;
 
   if (curX>SCREENOFFSET_X) begin
    if (curY>=SCREENOFFSET_Y) begin
@@ -124,14 +130,15 @@ always_comb begin
           iLed=(ledInX+ledInY+1);
           debug=arrDebugInfo[iLed];
           if (debug.status) begin
-            _red=debug[12:9];
+            _red=debug[12:9];           
             _green=debug[8:5];       
             _blue=debug[4:1];
-          end
+
         end
       end
     end
   end
+end
 end
 
   /*  Berni's template...
