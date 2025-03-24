@@ -20,6 +20,7 @@ module memCtrl_tb();
   wire o_psram_cs;
   reg _cs;
   logic bank;
+  logic o_psram_sclk;
 
 memCtrl U13_U25(
   .i_clkRAM(clkRAM), 
@@ -49,7 +50,7 @@ initial begin
   reset=1;
   clkRAM = 1'b0;
   forever begin
-    #1 clkRAM <= ~clkRAM;  
+    #1 clkRAM = ~clkRAM;  
   end
 end
 
@@ -71,18 +72,20 @@ initial begin
 #20       reset=1;
           $display ("Reset removed.");
 #1        assert(0==o_psram_sclk);
-#1        assert(1==o_psram_sclk);
+#1        assert(0==o_psram_sclk); // clock should be stopped during reset
           assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
 #2        assert(U13_U25.delayCounter==U13_U25.initDelayInClkCyles-1);
 #29998    assert(U13_U25.delayCounter==0);
           assert(U13_U25.isInitialized==0);
-#2        assert(U13_U25.state==sendQPIEnable);
-          assert(U13_U25.psram_cs==0); 
+#2        assert(1==o_psram_sclk);
+          assert(U13_U25.state==sendQPIEnable);
+          assert(U13_U25.psram_cs==0);          
           assert(io_psram_data0==U13_U25.qpiCommand[7]); // SI U7
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
-#2        assert(io_psram_data0==U13_U25.qpiCommand[6]); // SI U7
+#1        assert(0==o_psram_sclk);          
+#1        assert(io_psram_data0==U13_U25.qpiCommand[6]); // SI U7
           assert(io_psram_data1==='z); // SO U7
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7

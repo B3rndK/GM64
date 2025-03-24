@@ -5,6 +5,7 @@
 
 // For easier reading
 typedef enum bit[11:0] {
+  Black=12'b000000000000,
   AlmostBlack=12'b001000100010, // used as inactive color
   DarkRed=12'b011100010001,
   Red=12'b111100000000,
@@ -20,10 +21,10 @@ typedef enum bit[11:0] {
   White=12'b111111111111
 } Color;
 
-typedef struct packed  {  // Going from highest bit (18) to lowest bit (0)
-  logic [5:0] ledNo;      // led to switch (1-64) 
-  Color color;            // color to choose rgb (4:4:4)
-  logic status;           // 0- off, 1- on
+typedef struct packed  {  // Going from highest bit ledNo (18) to lowest bit status (0)
+  logic [5:0] ledNo;      // Bit 13-18, led to switch (1-64) 
+  Color color;            // Bit 1-12, color to choose rgb (4:4:4)
+  logic status;           // Bit 0,  0- off, 1- on
 } debugInfo_t;
 
 `endif

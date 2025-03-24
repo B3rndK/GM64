@@ -7,6 +7,8 @@
 //`include "../syncGen/src/syncGen.v"
 `include "visuMon.svh"
 
+/* verilator lint_off TIMESCALEMOD */
+
 /* Tool to simulate 64 LEDs using a simple VGA monitor display. 
    When we have VGA, why use LEDs? ;-)  */
 
@@ -23,11 +25,9 @@ module visuMon( input   logic i_clkVideo,
 
 debugInfo_t arrDebugInfo[63];
 
-logic [3:0] _red;
-logic [3:0] _green;
-logic [3:0] _blue;
-  
+logic [3:0] _red, _green, _blue;
 logic _display_on;
+
 logic [9:0] o_hpos;
 logic [9:0] o_vpos;
 
@@ -83,13 +83,14 @@ logic [5:0] iLed;
 logic [9:0] curX;
 logic [9:0] curY;
 //logic _status;
-logic [10:0] ledInX;
-logic [10:0] ledInY;
 
 /* verilator lint_off UNUSEDSIGNAL */
 debugInfo_t debug;
 
 always_comb begin
+  logic [10:0] ledInX;
+  logic [10:0] ledInY;
+
   iLed='x;
   curX=o_hpos;
   curY=o_vpos;
@@ -100,8 +101,8 @@ always_comb begin
   _blue=0;
   //_status=0;
   debug=arrDebugInfo[1];
-  if (reset==0) reset=1;
-  else reset=1;
+
+
   /*
   noOnX=99;
   noOnY=99;

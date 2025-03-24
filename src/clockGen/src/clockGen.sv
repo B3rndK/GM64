@@ -4,6 +4,8 @@
 `ifndef CLOCKGEN_H
 `define CLOCKGEN_H
 
+/* verilator lint_off TIMESCALEMOD */
+
 /* Main clock generation... */
 
 module clockGen(input wire clk10Mhz,

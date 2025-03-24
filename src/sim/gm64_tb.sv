@@ -10,39 +10,69 @@ module gm64_tb();
   reg  reset;
   reg fpga_but1=1;
 
-reset U1 (.clk (clk), .fpga_but1 (fpga_but1), .fpgaStart(fpga_start), .reset(reset));
+  logic csVisuMon;
+  debugInfo_t debugInfo;
+  logic o_hsync, o_vsync;
+  logic[3:0] o_red,o_green,o_blue;
+  logic o_led;
+
+visuMon U99 ( .i_clkVideo(clk),
+              .i_reset(1),
+              .i_cs(csVisuMon),    
+              .i_debugInfo(debugInfo),
+              .o_hsync(o_hsync), 
+              .o_vsync(o_vsync), 
+              .o_red(o_red), 
+              .o_green(o_green), 
+              .o_blue(o_blue),
+              .o_led(o_led));
+
 
 initial begin
   $asserton;
   clk = 1'b0;
+  csVisuMon=1;
+  debugInfo[17:0]=0;
+  
   forever #1 clk = ~clk;
+
 end  
 
 initial begin
           //$sdf_annotate("reset_tb.sdf", U1);
           $dumpon;
-          $dumpfile("sim/gm64_tb.vcd");
+          $dumpfile("sim/gm64_tb.fst");
           $dumpvars(0, gm64_tb);
-#1        $display("No reset until FPGA reports restart: time=%3d, clk=%b, reset=%b",$time, clk, reset);
-#1        assert(reset==0);
-#100000 assert(reset==0);
-#1        $display("Reset on restart fpga: time=%3d, clk=%b, reset=%b",$time, clk, reset);
-#1        fpga_start=0;
-#1        fpga_start=1;
-          assert(reset==0);
-#1
-#9999999  $display("Finished. time=%3d, clk=%b, reset=%b",$time, clk, reset);
-          assert(reset==1);
-#100
-          fpga_but1=0;
-#1        $display("Reset on button pressed: time=%3d, clk=%b, reset=%b",$time, clk, reset);
-#10       fpga_but1=1;
-#1        assert(reset==0);
+          $display("Start: time=%3d, clk=%b, reset=%b",$time, clk, reset);
+#1        debugInfo.ledNo=1;
+          debugInfo.color=Magenta;
+          debugInfo.status=1;
+          csVisuMon=1;
+#2        assert(U99.arrDebugInfo[1].ledNo==0);
+#2        csVisuMon=0;
+#2        csVisuMon=1;
+#2        assert(U99.arrDebugInfo[1].ledNo==1);
+          assert(U99.arrDebugInfo[1].status==1);
+          assert(U99.arrDebugInfo[1].color==Magenta);
+#100      debugInfo.ledNo=1;
+          debugInfo.color=Black;
+          debugInfo.status=0;
+#2        csVisuMon=0;
+#100      debugInfo.ledNo=1;
+          debugInfo.color=Green;
+          debugInfo.status=0;
+#200      assert(U99.arrDebugInfo[1].ledNo==1);
+          assert(U99.arrDebugInfo[1].status==0);
+          assert(U99.arrDebugInfo[1].color==Black);
+#2        csVisuMon=1;
+#2        csVisuMon=0;
+#2        assert(U99.arrDebugInfo[1].ledNo==1);
+          assert(U99.arrDebugInfo[1].status==0);
+          assert(U99.arrDebugInfo[1].color==Green);
+#2        csVisuMon=1;
 
-  
 #9000000  assert(reset==0);
 #1000000  $display("Finished. time=%3d, clk=%b, reset=%b",$time, clk, reset);
-#1        assert(reset==1);
           $finish(0);
 end
 endmodule;

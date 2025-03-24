@@ -28,8 +28,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                 inout wire io_psram_data7,            
                 output wire o_psram_cs,
                 output logic o_busy, // 1-Busy
-                output logic o_dataReady, // 1-ready);
-                output o_led); 
+                output logic o_dataReady); // 1-ready
 
   parameter initDelayInClkCyles=15000; // 150us @ 100Mhz
   
@@ -38,9 +37,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
   reg [7:0] qpiCommand;
   
   Action action;
-
+  logic stopClock;
   // Use for debugging purposes only
-  logic led;
+  //logic led;
   //assign o_led=!led;
 
   reg [23:0] address;
@@ -53,8 +52,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
   
   reg[5:0] shifter;
  
-  logic psram_sclk;
-  assign o_psram_sclk= reset ? i_clkRAM : 0;
+  assign o_psram_sclk= stopClock ? 0 : i_clkRAM;
 
   // Direction direction; // 0- in (read), 1-out (write)
   reg [7:0] direction;
@@ -90,7 +88,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
   // next logic
   always_comb begin
     case (state)
-      stateXXX:               next=stateReset;
+      stateXXX:               begin                                
+                                next=stateReset;
+                              end
 
       stateReset:             next=delayAfterReset;
 
@@ -143,11 +143,11 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
   end
   
   always_ff @(posedge i_clkRAM or negedge reset) begin
-  
     if (!reset) begin
+      action<=DONOTHING;
       isInitialized<=0;
       delayCounter<=0;
-      direction<=0;
+      direction<='b0;
       o_dataRead<=0;
       byteToWrite<=0;
       shifter<=0;
@@ -158,29 +158,26 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       dataU7<=4'b0;
       dataU9<=4'b0;
       csTriggeredOld<=0;
-      action<=DONOTHING;
-      psram_cs<=`HIGH;
+      psram_cs<=`LOW;
+      stopClock<=1;
     end
     else begin
       o_busy<= !(next==stateIdle && action==DONOTHING);
       direction<='0;
-
       if (i_cs==0) begin
-        if (!o_busy) begin
+        if (!o_busy) begin     
           if (csTriggeredOld==0) begin            
             csTriggeredOld<=1;
             shifter<=0;
-            o_dataReady<=0;
-            if (i_write) begin
+            o_busy<=1;
+            if (i_write==1) begin
                 action<=DOWRITE;
                 qpiCommand<=SPIQuadWrite;
                 byteToWrite<=i_dataToWrite;
-                o_busy<=1;
             end
-            else begin
+            else begin              
               action<=DOREAD;
               qpiCommand<=SPIQuadRead;
-              o_busy<=1;
             end
             address<=i_address;
           end
@@ -191,7 +188,6 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       case (next) 
         stateReset: begin
           psram_cs<=`HIGH;
-          o_dataReady<=0;
           action<=DONOTHING;
           delayCounter<=initDelayInClkCyles;
         end
@@ -201,6 +197,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
           qpiCommand<=enableQPIModeCmd;
           shifter<=0;
           delayCounter<=delayCounter-1;
+          if (delayCounter==3) stopClock<=0;
         end
 
         sendQPIEnable: begin
@@ -217,13 +214,11 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
           direction<=8'b0; // all 'Z', stay put
           case (action)
             DOWRITE: begin
-              o_dataReady<=0;
               qpiCommand<=SPIQuadWrite;
               shifter<=0;   
               psram_cs<=`LOW;
             end
             DOREAD: begin
-              o_dataReady<=0;
               qpiCommand<=SPIQuadRead;
               shifter<=0;                                     
               psram_cs<=`LOW;
@@ -234,7 +229,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         end
 
         sendQPIWriteCmd, 
-        sendQPIReadCmd: begin
+        sendQPIReadCmd: begin          
           psram_cs<=`LOW;
           if (!i_bank) begin
             direction<=8'b00001111;
