@@ -8,6 +8,7 @@
     Reset functionality, will reset for 500ms after FPGA signals start or
     when the specified button is pushed.
 */
+/* verilator lint_off TIMESCALEMOD */
 
 // assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 // wire [1:0] ar = status[13:12];
@@ -30,16 +31,15 @@ module reset(input  clk,          // 10 Mhz std fpga clk
              input  fpgaStart,    // FPGA reports it is starting (programming finished)
              output logic reset); // low active
 
-  localparam [25:0] DELAY_500MS=25'h4c4b40;   // We will keep reset active for 500ms
-  reg [25:0] counter;
+  localparam [25:0] DELAY_100MS='d50000;   // We will keep reset active for 50ms
+  int counter;
 
   always @(posedge clk) 
   begin
-    if (!fpga_but1) counter=0;
-    if (!fpgaStart) counter=0;
-    else begin
-      if (counter<=DELAY_500MS) counter++;
-      reset=!(counter<DELAY_500MS);       
+    if (fpga_but1===0) counter=0;
+    if (fpgaStart===1) begin
+      if (counter<DELAY_100MS) counter=counter+1;
+      reset=!(counter<DELAY_100MS);
     end
   end
   

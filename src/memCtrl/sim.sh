@@ -1,5 +1,5 @@
-../run.sh
-make vlog_sim.vvp
+#../run.sh
+make verilator-memCtrl.vvp
 if [ $? -eq 0 ]; then
-  sim/vlog_sim.vvp
+  obj_dir/VmemCtrl_tb
 fi

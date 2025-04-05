@@ -3,6 +3,8 @@
 `ifndef SYNCGEN_H
 `define SYNCGEN_H
 
+`timescale 10us / 1us
+
 /*
 Video sync generator, used to drive a VGA monitor.
 Timing from: https://en.wikipedia.org/wiki/Video_Graphics_Array
@@ -17,28 +19,7 @@ module syncGen(input logic clk,
                output reg [9:0] o_hpos, 
                output reg [9:0] o_vpos);
 
-
-  /*
-  // horizontal constants PAL 720x576/50Hz for C64
-   
-  parameter H_DISPLAY       = 720; // horizontal display width
-  parameter H_BACK          =  52; // horizontal left border (back porch)
-  parameter H_FRONT         =  16; // horizontal right border (front porch)
-  parameter H_SYNC          =  32; // horizontal sync width
-  // vertical constants
-  parameter V_DISPLAY       = 576; // vertical display height
-  parameter V_TOP           =  13; // vertical top border
-  parameter V_BOTTOM        =  10; // vertical bottom border
-  parameter V_SYNC          = 2; // vertical sync # lines
-  // derived constants
-  parameter H_SYNC_START    = H_DISPLAY + H_FRONT;
-  parameter H_SYNC_END      = H_DISPLAY + H_FRONT + H_SYNC - 1;
-  parameter H_MAX           = H_DISPLAY + H_BACK + H_FRONT + H_SYNC - 1;
-  parameter V_SYNC_START    = V_DISPLAY + V_BOTTOM;
-  parameter V_SYNC_END      = V_DISPLAY + V_BOTTOM + V_SYNC - 1;
-  parameter V_MAX           = V_DISPLAY + V_TOP + V_BOTTOM + V_SYNC - 1;
-  */
-  
+ 
   parameter H_DISPLAY       = 640; // horizontal display width
   parameter H_BACK          =  48; // horizontal left border (back porch)
   parameter H_FRONT         =  16; // horizontal right border (front porch)

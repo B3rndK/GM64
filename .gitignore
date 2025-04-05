@@ -22,5 +22,5 @@
 *.vvp
 *.gtkw
 *.idh
-
-
+obj_dir/
+DEADJOE
