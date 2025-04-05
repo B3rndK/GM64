@@ -49,7 +49,7 @@ synth_sv: synth_svlog
 # System verilog
 synth_svlog: $(VLOG_SRC) #
 #$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 src/gm64.v memCtrl/src/memCtrl.v  reset/src/reset.v clockGen/src/clockGen.sv visuMon/src/visuMon.sv $(CELLS_SYNTH_SV) $^ ; synth_gatemate -nomx8 -vlog net/$(TOP)_synth.v'
-	$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 src/gm64.v memCtrl/src/memCtrl.v clockGen/src/clockGen.sv visuMon/src/visuMon.sv visuMon/syncGen/src/syncGen.v $(CELLS_SYNTH_SV) $^ ; synth_gatemate -nomx8 -vlog net/$(TOP)_synth.v'
+	$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 src/gm64.v memCtrl/src/memCtrl.sv clockGen/src/clockGen.sv visuMon/src/visuMon.sv visuMon/syncGen/src/syncGen.v $(CELLS_SYNTH_SV) $^ ; synth_gatemate -nomx8 -vlog net/$(TOP)_synth.v'
 
 # Verilog
 synth_vlog: $(VLOG_SRC)
@@ -84,7 +84,7 @@ vlog_sim_sv.vvp:
 	$(IVL_SVL) $(CELLS_SIM_SV) $(IVL_SVL_FLAGS)  $(VLOG_SRC) ./sim/gm64_tb.sv
 
 verilator-memCtrl.vvp:
-	$(IVL_SVL) $(CELLS_SIM_SV) -binary --trace-fst --assert --top memCtrl_tb -I../memCtrl/sim -I../memCtrl/src memCtrl_tb.v memCtrl.v
+	$(IVL_SVL) $(CELLS_SIM_SV) -binary --trace-fst --assert --top memCtrl_tb -I../memCtrl/sim -I../memCtrl/src memCtrl_tb.v memCtrl.sv
 	
 ## icarus verilog simulation targets
 vlog_sim.vvp:

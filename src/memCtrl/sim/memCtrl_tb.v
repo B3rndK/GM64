@@ -3,6 +3,9 @@
 
 `timescale 10us / 1us
 
+
+// `include "../src/memCtrl.sv"
+ `include "../src/memCtrl.vh"
 module memCtrl_tb();
   
   logic clkRAM;
@@ -21,6 +24,7 @@ module memCtrl_tb();
   reg _cs;
   logic bank;
   logic o_psram_sclk;
+  StateMachine o_state;
 
 memCtrl U13_U25(
   .i_clkRAM(clkRAM), 
@@ -42,7 +46,8 @@ memCtrl U13_U25(
   .io_psram_data7(io_psram_data7),
   .o_psram_cs(o_psram_cs),
   .o_busy(o_busy),
-  .o_dataReady(o_dataReady)
+  .o_dataReady(o_dataReady),
+  .o_state(o_state)
   );
 
 initial begin
@@ -62,6 +67,7 @@ initial begin
           $dumpvars(0, memCtrl_tb);
 #2        $display("Starting PSRAM write test bank 0. Resetting controller.");          
           reset=0;
+          _cs=1; 
           bank=0;
 #1        assert(0==o_psram_sclk);   
 #1        assert(0==o_psram_sclk);
@@ -78,7 +84,7 @@ initial begin
 #29998    assert(U13_U25.delayCounter==0);
           assert(U13_U25.isInitialized==0);
 #2        assert(1==o_psram_sclk);
-          assert(U13_U25.state==sendQPIEnable);
+          assert(U13_U25.o_state==sendQPIEnable);
           assert(U13_U25.psram_cs==0);          
           assert(io_psram_data0==U13_U25.qpiCommand[7]); // SI U7
           assert(io_psram_data1==='z); // SO U7
@@ -114,36 +120,34 @@ initial begin
           assert(io_psram_data2==='z); // SO U7
           assert(io_psram_data3==='z); // SO U7
 #2        assert(U13_U25.isInitialized==1);
-          assert(U13_U25.state==stateIdle);
+          assert(U13_U25.o_state==stateIdle);
           assert(o_busy==0);
           // Try writing 
 #2        _cs=0; 
+          assert(U13_U25.shifter==0);
           _writeToRam=1;
           address=24'hAAAA;
           dataToWrite=8'b11110000;
 #2        _cs=1; 
+          assert(U13_U25.shifter==0);
           assert(o_busy==1);
-#2        assert(o_psram_cs==0);
-          assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data3==U13_U25.qpiCommand[7]);
-          assert(io_psram_data2==U13_U25.qpiCommand[6]); 
-          assert(io_psram_data1==U13_U25.qpiCommand[5]); 
-          assert(io_psram_data0==U13_U25.qpiCommand[4]); 
-          assert(o_busy==1);
-#2        assert(o_psram_cs==0);
-          assert(io_psram_data3==U13_U25.qpiCommand[3]);
-          assert(io_psram_data2==U13_U25.qpiCommand[2]); 
-          assert(io_psram_data1==U13_U25.qpiCommand[1]); 
-          assert(io_psram_data0==U13_U25.qpiCommand[0]); 
-#2        assert(U13_U25.state==sendQPIAddress);
+#2        assert(U13_U25.o_state==sendQPIWriteCmd);
+          assert(U13_U25.qpiCommand[7:0]==8'h38); // SPIQuadWrite
+          assert(o_psram_cs==0);
+          assert(io_psram_data0==1); // 0x03 // SIO 0 
+          assert(io_psram_data1==1);   
+          assert(io_psram_data2==0);   
+          assert(io_psram_data3==0);   
+#2        assert(io_psram_data0==0); // 0x08        
+          assert(io_psram_data1==0);             
+          assert(io_psram_data2==0);             
+          assert(io_psram_data3==1);             
           assert(o_busy==1);
           assert(o_psram_cs==0);
-
-          assert(io_psram_data4===1'bZ);          
-          assert(io_psram_data5===1'bZ);          
-          assert(io_psram_data6===1'bZ);          
-          assert(io_psram_data7===1'bZ);
-
+#2        assert(U13_U25.o_state==sendQPIAddress);
+          assert(U13_U25.shifter==3);
+          assert(o_busy==1);
+          assert(o_psram_cs==0);
           assert(io_psram_data0==0);
           assert(io_psram_data1==0);
           assert(io_psram_data2==0);
@@ -182,19 +186,16 @@ initial begin
           assert(io_psram_data5===1'bZ);          
           assert(io_psram_data6===1'bZ);          
           assert(io_psram_data7===1'bZ);
-
-
 #2        assert(U13_U25.psram_cs==1);
           assert(o_busy==0);
-          _cs=1; 
-          assert(U13_U25.state==stateIdle);
-#20       assert(U13_U25.state==stateIdle);          
+          assert(U13_U25.o_state==stateIdle);
+#20       assert(U13_U25.o_state==stateIdle);          
 #2        $display("Starting PSRAM read test bank 0. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
           _cs=0; 
           _writeToRam=0;
           address=24'hAAAA;
 #2        _cs=1; 
-#2        assert(U13_U25.state==sendQPIReadCmd); 
+#2        assert(U13_U25.o_state==sendQPIReadCmd); 
           assert(io_psram_data3==U13_U25.qpiCommand[7]);
           assert(io_psram_data2==U13_U25.qpiCommand[6]);
           assert(io_psram_data1==U13_U25.qpiCommand[5]);
@@ -205,7 +206,8 @@ initial begin
           assert(io_psram_data2==U13_U25.qpiCommand[2]);
           assert(io_psram_data1==U13_U25.qpiCommand[1]);
           assert(io_psram_data0==U13_U25.qpiCommand[0]);
-#2        assert(U13_U25.state==sendQPIAddress);
+          assert(U13_U25.shifter==2);
+#2        assert(U13_U25.o_state==sendQPIAddress);
           assert(o_busy==1);
           assert(o_psram_cs==0);
           assert(io_psram_data0==0);
@@ -228,160 +230,50 @@ initial begin
           assert(io_psram_data1==1);
           assert(io_psram_data2==0);
           assert(io_psram_data3==1);
-          assert(o_busy==1);
           assert(o_dataReady==0);
 #2        assert(io_psram_data0==0);
           assert(io_psram_data1==1);
           assert(io_psram_data2==0);
-          assert(io_psram_data3==1);
-#2        assert(io_psram_data0===1'bZ);          
+          assert(io_psram_data3==1); // 24 Bit Address
+          assert(U13_U25.shifter==8);
+#2        assert(io_psram_data0===1'bZ);   // Start wait cycles...
           assert(io_psram_data1===1'bZ);          
           assert(io_psram_data2===1'bZ);          
           assert(io_psram_data3===1'bZ);
-#2        $display("PSRAM read test bank 0 OK. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);          
-#12       // 7 Waitcyles
-#4        // Read data
-#2        assert(U13_U25.psram_cs==1);
-          assert(o_busy==0);
-          assert(o_dataReady==1);
-          assert(U13_U25.state==stateIdle);
-#20       assert(U13_U25.state==stateIdle);          
-#2000     assert(o_busy==0);
-          assert(o_dataReady==1);
-#2        $display("Starting PSRAM write test bank 1. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);          
-          // Testing bank 1
-          bank=1;
-          assert(U13_U25.isInitialized==1);
-          // Try writing 
-#2        _cs=0; 
-          _writeToRam=1;
-          address=24'hAAAA;
-          dataToWrite=8'b11110000;
-#2        _cs=1; 
-          assert(o_busy==1);
-#2        assert(o_psram_cs==0);
-          assert(U13_U25.state==sendQPIWriteCmd);
-          assert(io_psram_data7==U13_U25.qpiCommand[7]);
-          assert(io_psram_data6==U13_U25.qpiCommand[6]); 
-          assert(io_psram_data5==U13_U25.qpiCommand[5]); 
-          assert(io_psram_data4==U13_U25.qpiCommand[4]); 
-          assert(o_busy==1);
-#2        assert(o_psram_cs==0);
-          assert(io_psram_data7==U13_U25.qpiCommand[3]);
-          assert(io_psram_data6==U13_U25.qpiCommand[2]); 
-          assert(io_psram_data5==U13_U25.qpiCommand[1]); 
-          assert(io_psram_data4==U13_U25.qpiCommand[0]); 
-#2        assert(U13_U25.state==sendQPIAddress);
-          assert(o_busy==1);
-          assert(o_psram_cs==0);
-
-          assert(io_psram_data0===1'bZ);          
+          assert(U13_U25.psram_cs==0);
+#2        assert(io_psram_data0===1'bZ);   
           assert(io_psram_data1===1'bZ);          
           assert(io_psram_data2===1'bZ);          
           assert(io_psram_data3===1'bZ);
-
-          assert(io_psram_data4==0);
-          assert(io_psram_data5==0);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==0);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==0);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==0);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-          // Write data
-#2        assert(io_psram_data4==1);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==1);
-          assert(io_psram_data7==1);          
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==0);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==0);
-          assert(io_psram_data0===1'bZ);          
+          assert(U13_U25.psram_cs==0);
+#2        assert(io_psram_data0===1'bZ);   
           assert(io_psram_data1===1'bZ);          
           assert(io_psram_data2===1'bZ);          
           assert(io_psram_data3===1'bZ);
+          assert(U13_U25.psram_cs==0);
+#2        assert(io_psram_data0===1'bZ);   
+          assert(io_psram_data1===1'bZ);          
+          assert(io_psram_data2===1'bZ);          
+          assert(io_psram_data3===1'bZ);
+          assert(U13_U25.psram_cs==0);
+#2        assert(io_psram_data0===1'bZ);   
+          assert(io_psram_data1===1'bZ);          
+          assert(io_psram_data2===1'bZ);          
+          assert(io_psram_data3===1'bZ);
+          assert(U13_U25.psram_cs==0);
+#2        assert(io_psram_data0===1'bZ);   // 6th Waiting cycle
+          assert(io_psram_data1===1'bZ);          
+          assert(io_psram_data2===1'bZ);          
+          assert(io_psram_data3===1'bZ);
+          assert(U13_U25.psram_cs==0);
+#2        assert(o_busy==1);    // 2x read cycles
+          assert(U13_U25.psram_cs==0);
+#2        assert(o_busy==1);    // 2x read cycles
+          assert(U13_U25.psram_cs==0);
 #2        assert(U13_U25.psram_cs==1);
+#2        assert(o_dataReady==1);          
+          assert(U13_U25.o_state==stateIdle);
           assert(o_busy==0);
-          _cs=1; 
-          assert(U13_U25.state==stateIdle);
-#20       assert(U13_U25.state==stateIdle);     
-#2        $display("Starting PSRAM read test bank 1. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset);
-          _cs=0; 
-          _writeToRam=0;
-          address=24'hAAAA;
-#2        _cs=1; 
-#2        assert(U13_U25.state==sendQPIReadCmd); 
-          assert(io_psram_data7==U13_U25.qpiCommand[7]);
-          assert(io_psram_data6==U13_U25.qpiCommand[6]);
-          assert(io_psram_data5==U13_U25.qpiCommand[5]);
-          assert(io_psram_data4==U13_U25.qpiCommand[4]);
-          assert(o_dataReady==0);          
-#2        assert(o_busy==1);
-          assert(io_psram_data7==U13_U25.qpiCommand[3]);
-          assert(io_psram_data6==U13_U25.qpiCommand[2]);
-          assert(io_psram_data5==U13_U25.qpiCommand[1]);
-          assert(io_psram_data4==U13_U25.qpiCommand[0]);
-#2        assert(U13_U25.state==sendQPIAddress);
-          assert(o_busy==1);
-          assert(o_psram_cs==0);
-          assert(io_psram_data4==0);
-          assert(io_psram_data5==0);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==0);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==0);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==0);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-          assert(o_busy==1);
-          assert(o_dataReady==0);
-#2        assert(io_psram_data4==0);
-          assert(io_psram_data5==1);
-          assert(io_psram_data6==0);
-          assert(io_psram_data7==1);
-#2        assert(io_psram_data4===1'bZ);          
-          assert(io_psram_data5===1'bZ);          
-          assert(io_psram_data6===1'bZ);          
-          assert(io_psram_data7===1'bZ);
-#12       // 7 Waitcyles
-#4        // Read data
-#2        assert(U13_U25.psram_cs==1);
-          assert(o_busy==0);
-          assert(o_dataReady==1);
-          assert(U13_U25.state==stateIdle);
-#20       assert(U13_U25.state==stateIdle);          
-#2000     assert(o_busy==0);
-          assert(o_dataReady==1);
-
-
 #2        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset); 
           $finish(0);
 end

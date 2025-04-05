@@ -5,7 +5,7 @@
 `define GM64_H
 
 `include "../reset/src/reset.v"
-
+`include "../memCtrl/src/memCtrl.vh"
 
 module gm64(input clk0, // 10Mhz coming from FPGA
             input reset, 
@@ -43,9 +43,8 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   SStateMachine state;
   SStateMachine next2;
  
-  logic led;
+  logic led=0;
   logic einaus;
-  logic dataReadIn;
   int counter;
   logic rst;
   logic CE; // CE for memory controller    
@@ -63,10 +62,18 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   logic writeToRam;
 
   logic fpgaStart;  
+  StateMachine ramState;
+
 
   CC_USR_RSTN usr_rstn_inst (
    	.USR_RSTN(fpgaStart) // FPGA is configured and starts running
   );
+
+logic clkSys;
+clockGen U31  (.clk10Mhz (clk0),
+                 .clkSys (clkSys)
+              );
+
   reset U20 (.clk(clk0), 
              .fpga_but1(fpga_but1), 
              .fpgaStart(fpgaStart), 
@@ -74,7 +81,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             );  
 
   memCtrl U13_U25(
-    .i_clkRAM(clk0), 
+    .i_clkRAM(clkSys), 
     .reset(rst), 
     .i_cs(CE), 
     .i_write(writeToRam), 
@@ -93,18 +100,20 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     .io_psram_data7(io_psram_data7),
     .o_psram_cs(o_psram_cs),
     .o_busy(busy),
-    .o_dataReady(dataReady)
+    .o_dataReady(dataReady),
+    .o_state(ramState)
     );
 
- assign o_led=(einaus==0);
+ assign o_led=(/* einaus==0 &&*/ led==0);
 
- always_ff @(posedge clk0 or negedge rst) 
+ always_ff @(posedge clkSys or negedge rst) 
   if (!rst) begin
     state<=sstateXXX;
   end
   else state<=next2;  
   
-  always_ff @(posedge clk0 or negedge rst) begin
+   
+  always_ff @(posedge clkSys or negedge rst) begin
     CE<=1;
     if (!rst) begin
       led<=0;
@@ -112,23 +121,22 @@ module gm64(input clk0, // 10Mhz coming from FPGA
       addrBusMemCtrl<=0;
       dataToWrite<=0;
       writeToRam<=0;
+      i_bank<=0;
     end  
     else begin
       case (state)
         sstateXXX: next2<=sstateReset;
         sstateReset: begin                   
-          if (!busy) begin
-            next2<=sstateInitRAM;
-          end
+          if (ramState==stateIdle && !busy) next2<=sstateInitRAM;
           else next2<=sstateReset;
         end
         
         sstateInitRAM: begin
-          if (!busy) begin
+          if (ramState==stateIdle && !busy) begin
             CE<=0;
             writeToRam<=1;
-            addrBusMemCtrl<=16'hf000;
-            dataToWrite<=8'h01;
+            addrBusMemCtrl<=16'h0002;
+            dataToWrite<=8'hca;
             next2<=sstateReadRAM;
           end
         end
@@ -136,15 +144,19 @@ module gm64(input clk0, // 10Mhz coming from FPGA
         sstateReadRAM: begin
           if (busy) next2<=sstateReadRAM;
           else begin
-              CE<=0;
-              writeToRam<=0;
-              addrBusMemCtrl<=16'hf000;
-              next2<=sstateRun;
+              if (ramState==stateIdle && !busy) begin
+                CE<=0;
+                writeToRam<=0;
+                addrBusMemCtrl<=16'h0002; 
+                next2<=sstateRun;
+              end
           end
         end        
         
         sstateRun: begin
-          if (!busy) begin
+          if (dataReady==1 && !busy) begin
+            led<=1;
+            if (dataRead==8'hca) led<=0;
             next2<=sstateFinal;
           end
           else next2<=sstateRun;
@@ -157,17 +169,21 @@ module gm64(input clk0, // 10Mhz coming from FPGA
     end
   end
 
+  logic counta;
   always @(posedge dataReady, negedge rst) begin
     if (!rst) begin
       isReadOK=0;
-      dataReadIn=0;
       einaus=0;
+      counta=0;
     end
     else if (dataReady==1) begin
-      isReadOK=1;
-      if (dataRead===8'h00) einaus=1;
-      else einaus=0;
-      dataReadIn=0;
+      counta=counta+1;
+      /*
+      if (ramState==stateXXX) einaus=0;
+      else begin
+        if (dataRead==8'haa) einaus=1;
+        else einaus=0;
+      end */
     end
   end
 

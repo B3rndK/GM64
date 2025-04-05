@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (C)2024, 2025 Bernd Krekeler, Herne, Germany
 
-`ifndef MEMCTRL_H
-`define MEMCTRL_H
-
 `include "memCtrl.vh"
 
 /* 24-bit address, 8-Bit memory controller interface using 2x LY68S3200 
@@ -28,14 +25,18 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                 inout wire io_psram_data7,            
                 output wire o_psram_cs,
                 output logic o_busy, // 1-Busy
-                output logic o_dataReady); // 1-ready
+                output logic o_dataReady,
+                output StateMachine o_state); // 1-ready
 
   parameter initDelayInClkCyles=15000; // 150us @ 100Mhz
   
   reg [3:0] dataU7; // Bank 0
   reg [3:0] dataU9; // Bank 1
   reg [7:0] qpiCommand;
-  
+
+
+  logic [7:0] dataRead;
+
   Action action;
   logic stopClock;
   // Use for debugging purposes only
@@ -44,17 +45,15 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
 
   reg [23:0] address;
   logic [15:0] delayCounter;
-  StateMachine state, next;
+  StateMachine next;
    
   reg [7:0] byteToWrite;
-  reg psram_cs=1;
-  reg psram_cs2=0;
-  
+  reg psram_cs;
+    
   reg[5:0] shifter;
  
   assign o_psram_sclk= stopClock ? 0 : i_clkRAM;
 
-  // Direction direction; // 0- in (read), 1-out (write)
   reg [7:0] direction;
   logic csTriggeredOld;
   logic isInitialized=0;
@@ -68,26 +67,69 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
   assign io_psram_data5=(direction[5]==1 ? dataU9[1] : 1'bZ);
   assign io_psram_data6=(direction[6]==1 ? dataU9[2] : 1'bZ);
   assign io_psram_data7=(direction[7]==1 ? dataU9[3] : 1'bZ);
+ 
+  logic bankToUse;
+  RamAccessType rat;
+  assign o_psram_cs= psram_cs;
 
-  assign o_psram_cs= psram_cs2==1 ? 0 : psram_cs;
+  always_comb // IO logic
+    case (rat)
+      ratPwrUp:           begin
+                            direction[7:0]=8'b11111111;
+                            psram_cs=1;
+                          end          
+      ratInitialize:      begin
+                            direction[7:0]=8'b00010001;
+                            psram_cs=0;
+                          end          
+      ratSendCommand:     begin 
+                            if (bankToUse==0) begin
+                              direction[7:0]=8'b00001111;
+                              psram_cs=0;
+                            end
+                            else begin
+                              direction[7:0]=8'b11110000;
+                              psram_cs=0;
+                            end    
+                          end
+      ratSendData,
+      ratReadData:
+                          begin 
+                            if (bankToUse==0) begin
+                              direction[7:0]=8'b00001111;
+                              psram_cs=0;
+                            end
+                            else begin
+                              direction[7:0]=8'b11110000;
+                              psram_cs=0;
+                            end    
+                          end
 
-  always_ff @(posedge i_clkRAM or negedge reset) 
-    if (!reset) state<=stateXXX;
-    else state<=next;  
+        ratWaitCycle:     begin   
+                            direction[7:0]=8'b00000000;
+                            psram_cs=0;
+                          end
+
+        ratIdle:          begin
+                            direction[7:0]=8'b00000000;
+                            psram_cs=1;
+                          end          
+
+        default:          begin
+                            direction[7:0]=8'b00000000;
+                            psram_cs=1;
+                          end                          
+    endcase
+
+
   
-  // PSRAM needs pulling down CS on falling edge to really be stable
-  always @(negedge i_clkRAM)
-   case (next)
-    sendQPIEnable:    psram_cs2=1;
-    sendQPIWriteCmd:  psram_cs2=1;
-    sendQPIReadCmd:   psram_cs2=1;
-    default:          psram_cs2=0;
-                      
-   endcase
-
+  always_ff @(posedge i_clkRAM or negedge reset) 
+    if (!reset) o_state<=stateXXX;
+    else o_state<=next;  
+  
   // next logic
   always_comb begin
-    case (state)
+    case (o_state)
       stateXXX:               begin                                
                                 next=stateReset;
                               end
@@ -115,15 +157,15 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       end
       
       sendQPIWriteCmd:
-        if (shifter==8)         next=sendQPIAddress;
+        if (shifter==2)         next=sendQPIAddress;
         else                    next=sendQPIWriteCmd;
       
       sendQPIReadCmd:
-        if (shifter==8)         next=sendQPIAddress;
+        if (shifter==2)         next=sendQPIAddress;
         else                    next=sendQPIReadCmd;
 
       sendQPIAddress:
-        if (shifter==14)
+        if (shifter==8)
         begin
           if (action==DOWRITE)  next=writeData;
           else                  next=readData;
@@ -131,78 +173,71 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         else                    next=sendQPIAddress;
                                 
       readData:
-        if (shifter>15+WAITCYCLES) next=stateIdle;
+        if (shifter>='h11)      next=stateIdle;
         else                    next=readData;
 
       writeData:
-        if (shifter==16)        next=stateIdle;
+        if (shifter==10)        next=stateIdle;
         else                    next=writeData;
 
       default:                  next=stateXXX;
     endcase
   end
   
+  logic cntCS;
+  always_comb begin
+    if (!reset) cntCS=0;
+    else
+      cntCS=~i_cs;
+  end
+
+  /*
+  always_comb begin
+    if (i_cs) begin
+      address=i_address;
+      if (i_write==1) begin
+          action=DOWRITE;
+          byteToWrite=i_dataToWrite;
+      end
+      else begin              
+        action=DOREAD;
+      end
+    end
+  end
+  */
+  logic oldCntCS;
   always_ff @(posedge i_clkRAM or negedge reset) begin
     if (!reset) begin
-      action<=DONOTHING;
       isInitialized<=0;
+      action<=DONOTHING;
       delayCounter<=0;
-      direction<='b0;
-      o_dataRead<=0;
-      byteToWrite<=0;
+      dataRead<=0;
       shifter<=0;
       o_dataReady<=0;
-      address<=0;
       qpiCommand<=0;
       o_busy<=1;
-      dataU7<=4'b0;
-      dataU9<=4'b0;
-      csTriggeredOld<=0;
-      psram_cs<=`LOW;
+      dataU7[3:0]<=4'b0;
+      dataU9[3:0]<=4'b0;
+      rat<=ratPwrUp;
       stopClock<=1;
+      oldCntCS<=0;
     end
     else begin
-      o_busy<= !(next==stateIdle && action==DONOTHING);
-      direction<='0;
-      if (i_cs==0) begin
-        if (!o_busy) begin     
-          if (csTriggeredOld==0) begin            
-            csTriggeredOld<=1;
-            shifter<=0;
-            o_busy<=1;
-            if (i_write==1) begin
-                action<=DOWRITE;
-                qpiCommand<=SPIQuadWrite;
-                byteToWrite<=i_dataToWrite;
-            end
-            else begin              
-              action<=DOREAD;
-              qpiCommand<=SPIQuadRead;
-            end
-            address<=i_address;
-          end
-        end
-      end
-      else csTriggeredOld<=0;
-
+      o_busy<=(next!=stateIdle);
       case (next) 
         stateReset: begin
-          psram_cs<=`HIGH;
-          action<=DONOTHING;
+          rat<=ratPwrUp;
           delayCounter<=initDelayInClkCyles;
         end
 
         delayAfterReset: begin 
-          psram_cs<=`HIGH;
           qpiCommand<=enableQPIModeCmd;
-          shifter<=0;
           delayCounter<=delayCounter-1;
           if (delayCounter==3) stopClock<=0;
         end
 
         sendQPIEnable: begin
-          psram_cs<=`LOW;
-          direction<=8'b00010001; // SI active only on both chips
+          rat<=ratInitialize;
           dataU7[0]<=qpiCommand[shifter^7];
           dataU9[0]<=qpiCommand[shifter^7];
           shifter<=shifter+1;        
@@ -210,87 +245,119 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         end    
 
         stateIdle: begin
-          psram_cs<=`HIGH;
-          direction<=8'b0; // all 'Z', stay put
-          case (action)
-            DOWRITE: begin
-              qpiCommand<=SPIQuadWrite;
-              shifter<=0;   
-              psram_cs<=`LOW;
+          rat<=ratIdle;
+          shifter<=0;  
+          oldCntCS<=cntCS;
+          action<=DONOTHING;
+          if (oldCntCS!=cntCS) begin
+            if (cntCS==1) begin
+              bankToUse<=i_bank;
+              address<=i_address;
+              o_dataReady<=0;
+              if (i_write==1) begin
+                  byteToWrite<=i_dataToWrite;
+                  action<=DOWRITE;
+                  qpiCommand<=SPIQuadWrite;                  
+              end
+              else begin              
+                action<=DOREAD;
+                qpiCommand<=SPIQuadRead;
+              end
+              o_busy<=1;
             end
-            DOREAD: begin
-              qpiCommand<=SPIQuadRead;
-              shifter<=0;                                     
-              psram_cs<=`LOW;
-            end
-            DONOTHING: ;
-            default: ;
-          endcase
+          end
         end
 
-        sendQPIWriteCmd, 
-        sendQPIReadCmd: begin          
-          psram_cs<=`LOW;
-          if (!i_bank) begin
-            direction<=8'b00001111;
-            if (shifter<4) dataU7[3:0]<=qpiCommand[7:4];
-            else dataU7[3:0]<=qpiCommand[3:0];
+        sendQPIWriteCmd: begin
+          rat<=ratSendCommand;
+          if (bankToUse==0) begin
+            if (shifter==0) begin
+              dataU7[3:0]<=4'h3;
+            end
+            else begin
+              dataU7[3:0]<=4'h8;
+            end
           end
           else begin
-            direction<=8'b11110000; // QPI enabled. Use all data lines to send EB (read) or 38 (write)
-            if (shifter<4) dataU9[3:0]<=qpiCommand[7:4];
-            else dataU9[3:0]<=qpiCommand[3:0];
+            if (shifter==0) begin
+              dataU9[3:0]<=4'h03;
+            end
+            else begin
+              dataU9[3:0]<=4'h08;
+            end
           end
-          shifter<=shifter+4; 
+          shifter<=shifter+1; 
+        end
+
+        sendQPIReadCmd: begin     
+          rat<=ratSendCommand;     
+          qpiCommand<=SPIQuadRead;
+          if (bankToUse==0) begin
+            if (shifter==0) begin
+              dataU7[3:0]<=4'h0e;
+            end
+            else begin
+              dataU7[3:0]<=4'h0b;
+            end
+          end
+          else begin
+            if (shifter==0) begin
+              dataU9[3:0]<=4'h0e;
+            end
+            else begin
+              dataU9[3:0]<=4'h0b;
+            end
+          end
+          shifter<=shifter+1; 
         end
 
         sendQPIAddress: begin
-          psram_cs<=`LOW;
-          direction<=8'b00001111; // all pins active
-          if (i_bank) direction<=8'b11110000; // all pins active
-          case (shifter) 
-            8:  if (!i_bank) dataU7[3:0]<=address[23:20];
-                else dataU9[3:0]<=address[23:20];
-            9:  if (!i_bank) dataU7[3:0]<=address[19:16];
-                else dataU9[3:0]<=address[19:16];
-            10: if (!i_bank) dataU7[3:0]<=address[15:12];
-                else dataU9[3:0]<=address[15:12];      
-            11: if (!i_bank) dataU7[3:0]<=address[11:8];
-                else dataU9[3:0]<=address[11:8];
-            12: if (!i_bank) dataU7[3:0]<=address[7:4];
-                else dataU9[3:0]<=address[7:4];
-            13: if (!i_bank) dataU7[3:0]<=address[3:0];
-                else dataU9[3:0]<=address[3:0];
-          endcase
+          rat<=ratSendData;
+          if (bankToUse==0) begin
+            case (shifter) 
+              2: dataU7[3:0]<=address[23:20];
+              3: dataU7[3:0]<=address[19:16];
+              4: dataU7[3:0]<=address[15:12];
+              5: dataU7[3:0]<=address[11:8];
+              6: dataU7[3:0]<=address[7:4];
+              7: dataU7[3:0]<=address[3:0];
+            endcase
+          end
+          else begin
+            case (shifter) 
+              2: dataU9[3:0]<=address[23:20];
+              3: dataU9[3:0]<=address[19:16];
+              4: dataU9[3:0]<=address[15:12];      
+              5: dataU9[3:0]<=address[11:8];
+              6: dataU9[3:0]<=address[7:4];
+              7: dataU9[3:0]<=address[3:0];
+            endcase
+          end
           shifter<=shifter+1;        
         end
 
         writeData: begin
-          psram_cs<=`LOW;
-          direction<=8'b00001111; // all pins active
-          if (i_bank) direction<=8'b11110000; // all pins active
+          rat<=ratSendData;
           case (shifter) 
-            14: if (!i_bank) dataU7[3:0]<=byteToWrite[7:4];
-                else dataU9[3:0]<=byteToWrite[7:4];      
-            15: begin
-                  if (!i_bank) dataU7[3:0]<=byteToWrite[3:0];
+            8: if (bankToUse==0) dataU7[3:0]<=byteToWrite[7:4];
+               else dataU9[3:0]<=byteToWrite[7:4];      
+            9: begin 
+                  if (bankToUse==0) dataU7[3:0]<=byteToWrite[3:0];
                   else dataU9[3:0]<=byteToWrite[3:0];
-                  action<=DONOTHING;
-                  o_busy<=0;
-                end
+               end
           endcase
-          shifter<=shifter+1;      
+          shifter<=shifter+1; 
         end
 
         /* We have to wait for the psram to fetch our data before we can
             actually read after having sent the address. */
 
         readData: begin
-          psram_cs<=`LOW;
-          direction<=8'b0; // do not drive io_psram
+          // shifter is 8 here
           case (shifter) 
-            14+WAITCYCLES: begin
-                  if (!i_bank) begin
+            'h0e: rat<=ratReadData;
+            'h0f: begin
+                  if (bankToUse==0) begin
                     o_dataRead[4]<=io_psram_data0;
                     o_dataRead[5]<=io_psram_data1;
                     o_dataRead[6]<=io_psram_data2;
@@ -303,8 +370,8 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                     o_dataRead[7]<=io_psram_data7;
                   end
                 end  
-            15+WAITCYCLES: begin
-                  if (!i_bank) begin
+            'h10: begin
+                  if (bankToUse==0) begin
                     o_dataRead[0]<=io_psram_data0;
                     o_dataRead[1]<=io_psram_data1;
                     o_dataRead[2]<=io_psram_data2;
@@ -316,13 +383,13 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                     o_dataRead[2]<=io_psram_data6;
                     o_dataRead[3]<=io_psram_data7;
                   end                                      
-                  action<=DONOTHING;
                   o_dataReady<=1;
                   o_busy<=0;
+                  rat<=ratIdle;
                 end 
 
-            default: // Waitcyles
-              direction<=8'b0; // all Z
+            default: rat<=ratWaitCycle;
+
           endcase
           shifter<=shifter+1;               
         end
@@ -331,7 +398,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     end
   end
 endmodule
-`endif 
+
 
 
   
