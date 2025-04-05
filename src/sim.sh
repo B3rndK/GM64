@@ -12,6 +12,6 @@ if [ $? -eq 0 ]; then
     #gtkwave sim/gm64_tb.vcd
   else
     obj_dir/Vgm64_tb --trace-fst --assert
-    #gtkwave sim/gm64_tb.fst
+    # gtkwave sim/gm64_tb.fst
   fi
 fi
