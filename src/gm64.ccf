@@ -66,7 +66,7 @@ Pin_inout   "io_psram_data7"    Loc = "IO_WC_B8";
 
 # CLK
 Pin_in  "clk0"  Loc = "IO_SB_A8" | SCHMITT_TRIGGER=true; # 10 Mhz
-Pin_out  "o_led" Loc = "IO_SB_B6" ;
+Pin_out  "o_led" Loc = "IO_SB_B6"; 
 Pin_in  "fpga_but1" Loc = "IO_SB_B7" | PULLUP=true;
 
 # VGA
