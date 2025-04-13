@@ -107,9 +107,7 @@ clockGen U31  (.clk10Mhz (clk0),
  assign o_led=(/* einaus==0 &&*/ led==0);
 
  always_ff @(posedge clkSys or negedge rst) 
-  if (!rst) begin
-    state<=sstateXXX;
-  end
+  if (!rst) state<=sstateXXX;
   else state<=next2;  
   
    
