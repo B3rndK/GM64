@@ -1,18 +1,19 @@
 `ifndef MEMCTRL_H
 `define MEMCTRL_H
 
-typedef enum bit[10:0] {
-  stateReset=1,
-  delayAfterReset=3,
-  sendQPIEnable=7,
-  stateIdle=15,
-  sendQPIWriteCmd=31,
-  sendQPIAddress=63,
-  writeData=127,
-  sendQPIReadCmd=255,
-  readData=511,
-  waitCycles=1023,
-  stateXXX=2047
+typedef enum  {
+  stateXXX,
+  stateReset,
+  delayAfterReset,
+  enableClock,
+  sendQPIEnable,
+  stateIdle,
+  sendQPIWriteCmd,
+  sendQPIAddress,
+  waitCycles,
+  writeData,
+  sendQPIReadCmd,
+  readData
 } StateMachine;
 
 typedef enum reg[7:0] {
@@ -43,10 +44,5 @@ typedef enum logic[6:0] {
   ratWaitCycle=32
 } RamAccessType;
 
-
-localparam WAITCYCLES = 6;
-
-`define LOW   1'b0;
-`define HIGH  1'b1;
 
 `endif 

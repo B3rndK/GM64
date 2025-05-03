@@ -69,6 +69,8 @@ initial begin
           reset=0;
           _cs=1; 
           bank=0;
+#2        reset=1;
+#100      ;
 #1        assert(0==o_psram_sclk);   
 #1        assert(0==o_psram_sclk);
 #1        assert(0==o_psram_sclk);

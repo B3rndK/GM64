@@ -27,8 +27,8 @@ CELLS_SIM_SV =	/home/bernd/GateMate/bin/yosys/share/gatemate/cells_sim.v # Primi
 
 # synthesis libraries
 CELLS_SYNTH = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_bb.v # Primitives for synthesis
-#CELLS_SYNTH_SV = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_bb.v # Primitives for synthesis
-CELLS_SYNTH_SV= /home/bernd/Applications/oss-cad-suite/share/yosys/gatemate/cells_bb.v
+CELLS_SYNTH_SV = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_bb.v # Primitives for synthesis
+#CELLS_SYNTH_SV= /home/bernd/Applications/oss-cad-suite/share/yosys/gatemate/cells_bb.v
 CELLS_IMPL = /home/bernd/GateMate/bin/p_r/cpelib.v
 
 
@@ -84,7 +84,7 @@ vlog_sim_sv.vvp:
 	$(IVL_SVL) $(CELLS_SIM_SV) $(IVL_SVL_FLAGS)  $(VLOG_SRC) ./sim/gm64_tb.sv
 
 verilator-memCtrl.vvp:
-	$(IVL_SVL) $(CELLS_SIM_SV) -binary --trace-fst --assert --top memCtrl_tb -I../memCtrl/sim -I../memCtrl/src memCtrl_tb.v memCtrl.sv
+	$(IVL_SVL) $(CELLS_SIM_SV) -binary --timing +1800-2023ext+sv --threads 8 --coverage --trace-fst --assert --top memCtrl_tb -I../memCtrl/sim -I../memCtrl/src memCtrl_tb.v memCtrl.sv
 	
 ## icarus verilog simulation targets
 vlog_sim.vvp:
