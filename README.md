@@ -13,7 +13,7 @@ The project has just started. The next steps are as follows:
 - [x] Creation and upload of the bitstream to FPGA
 - [x] System wide monostable multivibrator type reset module
 - [x] Basic video output
-- [ ] LY68S3200 PSRAM (4Mx8) BUS controller (still not stable)
+- [ ] LY68S3200 PSRAM (4Mx8) BUS controller (99% but still not really stable)
 - [ ] 6502 loading/storing/executing code from PSRAM
 - [ ] Video module accessing PSRAM
 - [ ] ... much, much more...
