@@ -15,10 +15,8 @@ module memCtrl_tb();
   logic [23:0] address;
   logic [7:0] dataToWrite;
   logic [7:0] dataRead;
-  logic busy;
-  reg [7:0] debug;
   wire io_psram_data0, io_psram_data1,io_psram_data2, io_psram_data3,io_psram_data4,
-      io_psram_data5, io_psram_data6,io_psram_data7, io_psram_data8;
+      io_psram_data5, io_psram_data6,io_psram_data7;
   logic o_busy;
   logic o_dataReady;
   wire o_psram_cs;
@@ -69,7 +67,7 @@ initial begin
           // $dumpfile("sim/memCtrl_tb.vcd");
           // $dumpvars(0, memCtrl_tb);
 #2        $display("Starting PSRAM write test bank 0. Resetting controller.");          
-         `ASSERT(1==U13_U25.o_psram_cs);
+         `ASSERT(0==U13_U25.o_psram_cs);
           reset=0;
           _cs=1; 
           bank=0;
@@ -88,11 +86,11 @@ initial begin
           `ASSERT(U13_U25.delayCounter==U13_U25.initDelayInClkCyles);
           `ASSERT(U13_U25.isInitialized==0);
           // Waiting for >150us...
-#15254    $display("U13_U25.delayCounter=%0d",U13_U25.delayCounter);
+#14854    $display("U13_U25.delayCounter=%0d",U13_U25.delayCounter);
           `ASSERT(U13_U25.delayCounter==0);
 #2        `ASSERT(1==o_psram_sclk);
           `ASSERT(U13_U25.o_state==sendQPIEnable);
-          `ASSERT(U13_U25.psram_cs==0);          
+          `ASSERT(o_psram_cs==0);          
           `ASSERT(io_psram_data0==U13_U25.qpiCommand[7]); // SI U7
           `ASSERT(io_psram_data1==='z); // SO U7
           `ASSERT(io_psram_data2==='z); // SO U7
@@ -202,6 +200,7 @@ initial begin
           _writeToRam=0;
           address=24'hAAAA;
 #2        _cs=1; 
+          `ASSERT(o_busy==1);
 #2        `ASSERT(U13_U25.o_state==sendQPIReadCmd); 
           `ASSERT(io_psram_data3==U13_U25.qpiCommand[7]);
           `ASSERT(io_psram_data2==U13_U25.qpiCommand[6]);
@@ -247,6 +246,12 @@ initial begin
           `ASSERT(io_psram_data1===1'bZ);          
           `ASSERT(io_psram_data2===1'bZ);          
           `ASSERT(io_psram_data3===1'bZ);
+          $display("cntWaitCycles to go=%03d",U13_U25.cntWaitCycles);
+          `ASSERT(U13_U25.psram_cs==0);
+#2        `ASSERT(io_psram_data0===1'bZ);   
+          `ASSERT(io_psram_data1===1'bZ);          
+          `ASSERT(io_psram_data2===1'bZ);          
+          `ASSERT(io_psram_data3===1'bZ);          
           `ASSERT(U13_U25.psram_cs==0);
 #2        `ASSERT(io_psram_data0===1'bZ);   
           `ASSERT(io_psram_data1===1'bZ);          
@@ -262,26 +267,25 @@ initial begin
           `ASSERT(io_psram_data1===1'bZ);          
           `ASSERT(io_psram_data2===1'bZ);          
           `ASSERT(io_psram_data3===1'bZ);
-          `ASSERT(U13_U25.psram_cs==0);
-#2        `ASSERT(io_psram_data0===1'bZ);   
-          `ASSERT(io_psram_data1===1'bZ);          
-          `ASSERT(io_psram_data2===1'bZ);          
-          `ASSERT(io_psram_data3===1'bZ);
+          $display("cntWaitCycles to go=%03d",U13_U25.cntWaitCycles);
           `ASSERT(U13_U25.psram_cs==0);
 #2        `ASSERT(io_psram_data0===1'bZ);   // 6th Waiting cycle
           `ASSERT(io_psram_data1===1'bZ);          
           `ASSERT(io_psram_data2===1'bZ);          
           `ASSERT(io_psram_data3===1'bZ);
+          $display("cntWaitCycles to go=%03d",U13_U25.cntWaitCycles);
           `ASSERT(U13_U25.psram_cs==0);
 #2        `ASSERT(o_busy==1);    // 2x read cycles
           `ASSERT(U13_U25.psram_cs==0);
 #2        `ASSERT(o_busy==1);    // 2x read cycles
           `ASSERT(U13_U25.psram_cs==0);
-#2        `ASSERT(U13_U25.psram_cs==1);
-#2        `ASSERT(o_dataReady==1);          
+#2        `ASSERT(o_busy==0);
+          `ASSERT(o_dataReady==1);        
+#2        `ASSERT(U13_U25.psram_cs==1);           
           `ASSERT(U13_U25.o_state==stateIdle);
           `ASSERT(o_busy==0);
-#100      `ASSERT(o_busy==0);          
+#100      `ASSERT(o_busy==0);
+          `ASSERT(U13_U25.o_state==stateIdle);          
           `FINAL_REPORT;
 #2        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset); 
           $finish(0);

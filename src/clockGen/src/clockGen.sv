@@ -9,30 +9,26 @@
 /* Main clock generation... */
 
 module clockGen(input wire clk10Mhz,
-   				output wire clkSys);
+   				output logic clk100Mhz);
 								
-parameter sysclk="80.0"; //49.26 We need at least 48 Mhz for the 'PSRAM race'...sysclk/50 will provide us 0.9582 (PAL) phi
-parameter referenceClk="10.0"; 	 // Reference clock is 10Mhz coming from FPGA
-
+parameter sysclk=100; // We need at least 48 Mhz for the 'PSRAM race'...sysclk/50 will provide us 0.9582 (PAL) phi
+parameter referenceClk=10; 	 // Reference clock is 10Mhz coming from FPGA
 // wire clkSysPLL;
 wire usr_pll_lock_stdy, usr_pll_lock;
-logic clk100Tmp;
 
 CC_PLL #(
-	.REF_CLK(10), // reference input in MHz
-	.OUT_CLK(100),   		// pll output frequency in MHz
-	.PERF_MD("SPEED"), 	  // LOWPOWER, ECONOMY, SPEED
+	.REF_CLK(referenceClk), 		// reference input in MHz
+	.OUT_CLK(sysclk),   	// pll output frequency in MHz
 	.LOCK_REQ(1),
 	.LOW_JITTER(1),    			// 0: disable, 1: enable low jitter mode
-	.CI_FILTER_CONST(2), 		// default 
-  	.CP_FILTER_CONST(4)		// default 
+	.PERF_MD("SPEED") 	// LOWPOWER, ECONOMY, SPEED	
 	) pll_inst (
 	.CLK_REF(clk10Mhz), .USR_PLL_LOCKED(usr_pll_lock),	
 	.USR_CLK_REF(),
 	.CLK_FEEDBACK(),
 	.USR_LOCKED_STDY_RST(),
 	.USR_PLL_LOCKED_STDY(),
-	.CLK0(clkSys),
+	.CLK0(clk100Mhz),
 	.CLK90(),
 	.CLK180(),
 	.CLK270(),
@@ -40,7 +36,7 @@ CC_PLL #(
 );
 
 //wire pll_clk_nobuf;
-//CC_BUFG pll_bufg (.I(pll_clk_nobuf), .O(clkSys));
+// CC_BUFG pll_bufg (.I(pll_clk_nobuf), .O(clkSys));
 
 
 // Connect the sysclk to the global routing resources of the FPGA to ensure that all

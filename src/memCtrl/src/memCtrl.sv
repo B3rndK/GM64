@@ -4,8 +4,6 @@
 `timescale 1us / 1ns
 `include "memCtrl.vh"
 
-`default_nettype none
-
 /* 24-bit address, 8-Bit memory controller interface using 2x LY68S3200 
    32M (4Mx8) Bits Serial Pseudo-SRAM with QPI divided into 2 banks. */
 
@@ -29,38 +27,33 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                 output logic o_psram_cs,
                 output logic o_busy, // 1-Busy
                 output logic o_dataReady,
-                output StateMachine o_state,
                 output logic led); // 1-ready
 
-  parameter initDelayInClkCyles=15400; // 150us @ 100Mhz+some bonus
-  localparam WAITCYCLES=6;
-  reg [3:0] dataU7; // Bank 0
-  reg [3:0] dataU9; // Bank 1
-  reg [7:0] qpiCommand;
+  parameter initDelayInClkCyles=7800; // 150us @ 100Mhz+some bonus
+  localparam logic[3:0] WAITCYCLES=6;
+  logic [3:0] dataU7; // Bank 0
+  logic [3:0] dataU9; // Bank 1
+  logic [7:0] qpiCommand;
   
-`define LOW   1'b0;
-`define HIGH  1'b1;
-
- Action action;
- logic stopClock;
+  Action action;
+  logic stopClock;
    
   
   logic[3:0] cntWaitCycles;
-  reg [23:0] address;
+  logic [23:0] address;
   logic bank;
   logic [15:0] delayCounter;
   StateMachine state, next;
    
-  reg [7:0] byteToWrite;
-  reg psram_cs=0;
+  logic [7:0] byteToWrite;
+  logic psram_cs;
   
-  reg[5:0] shifter;
+  logic [5:0] shifter;
  
   assign o_psram_sclk= stopClock ? 0 : i_clkRAM;
 
   // Direction direction; // 0- in (read), 1-out (write)
-  reg [7:0] direction;
-  logic isInitialized;
+  logic [7:0] direction;
 
   assign io_psram_data0=(direction[0]==1 ? dataU7[0] : 1'bZ);
   assign io_psram_data1=(direction[1]==1 ? dataU7[1] : 1'bZ);
@@ -79,8 +72,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     else state<=next;  
 
   // PSRAM needs pulling down CS on falling edge to really be stable
-  always_ff @(negedge i_clkRAM)
-
+  always_ff @(negedge i_clkRAM) begin
     case (next)
       stateXXX:         psram_cs<=0;         
       stateReset:       psram_cs<=0;
@@ -94,26 +86,22 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       stateIdle:        psram_cs<=1;        
       default:          psram_cs<=1;
     endcase
+  end
 
   // next logic
   always_comb begin
     case (state)
-      stateXXX:               begin                                
-                                next=stateReset;
-                              end
-
+      stateXXX:               next=stateReset;
+            
       stateReset:             next=delayAfterReset;
 
       delayAfterReset:
-        if (delayCounter==0) begin
-          if (!isInitialized) next=sendQPIEnable;
-          else                next=stateIdle;
-        end
+        if (delayCounter==0)  next=sendQPIEnable;
         else                  next=delayAfterReset;        
   
       sendQPIEnable:      
-      if (shifter==8)       next=stateIdle;
-      else                  next=sendQPIEnable;
+      if (shifter==8)         next=stateIdle;
+      else                    next=sendQPIEnable;
   
       stateIdle: begin
         case (action)
@@ -125,20 +113,22 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       end
       
       sendQPIWriteCmd:
-        if (shifter==8)         next=sendQPIAddress;
-        else                    next=sendQPIWriteCmd;
+        if (shifter==8)       next=sendQPIAddress;
+        else                  next=sendQPIWriteCmd;
       
       sendQPIReadCmd:
-        if (shifter==8)         next=sendQPIAddress;
-        else                    next=sendQPIReadCmd;
+        if (shifter==8)       next=sendQPIAddress;
+        else                  next=sendQPIReadCmd;
 
       sendQPIAddress:
-        if (shifter==13 && action==DOWRITE) next=writeData;
-        else if (shifter==14 && action==DOREAD) next=waitCycles;
-        else next=sendQPIAddress; 
-             
+        if (shifter==14) begin
+          if (action==DOWRITE)  next=writeData;
+          else                  next=waitCycles; 
+        end
+        else                    next=sendQPIAddress;
+
       waitCycles:
-        if (cntWaitCycles==1)   next=readData;
+        if (cntWaitCycles==0)   next=readData;
         else                    next=waitCycles;                   
       
       readData: 
@@ -153,175 +143,140 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     endcase
   end
   
-  always_ff @(posedge i_clkRAM) begin
-    if (!reset) begin
-      o_dataRead<=0;
-      bank<=0;
-      o_dataReady<=0;
-      action<=DONOTHING;
-      isInitialized<=0;
-      delayCounter<=0;
-      direction<='hff;
-      byteToWrite<=0;
-      shifter<=0;
-      address<=0;
-      qpiCommand<=0;
-      o_busy<=1;
-      dataU7<=4'b0;
-      dataU9<=4'b0;
-      stopClock<=1;
-      led<=0;
-    end
-    else begin
-      o_state<=state;
-      o_busy<=1;
-      isInitialized<=1;      
+  always_ff @(posedge i_clkRAM) begin   
+    case (next) 
 
-      case (next) 
-        stateReset: begin
-          direction<=8'hff;
-          action<=DONOTHING;
-          delayCounter<=initDelayInClkCyles;
-          isInitialized<=0;      
-        end
+      stateReset: begin
+        o_busy<=1;
+        direction<=8'hff;
+        dataU7='b0;
+        dataU9='b0;       
+        delayCounter<=initDelayInClkCyles;
+        stopClock<=1;
+      end
 
-        delayAfterReset: begin 
-          isInitialized<=0;      
+      delayAfterReset: begin 
+        delayCounter<=delayCounter-1;
+        if (delayCounter==3) begin
+          stopClock<=0;
           qpiCommand<=enableQPIModeCmd;
+          led<=0;
+        end
+      end
+
+      sendQPIEnable: begin
+        direction<=8'b00010001; // SI active only on both chips
+        dataU7[0]<=qpiCommand[shifter^7];
+        dataU9[0]<=qpiCommand[shifter^7];
+        shifter<=shifter+1;        
+      end    
+
+      stateIdle: begin
+        action<=DONOTHING;
+        o_busy<=0;
+        direction<=8'b0; // all 'Z', stay put
+
+        if (~i_cs) begin
+          o_dataReady<=0;
+          bank<=i_bank;
+          address<=i_address;
           shifter<=0;
-          delayCounter<=delayCounter-1;
-          if (delayCounter==3) stopClock<=0;
-        end
-
-        sendQPIEnable: begin
-          isInitialized<=0;      
-          direction<=8'b00010001; // SI active only on both chips
-          dataU7[0]<=qpiCommand[shifter^7];
-          dataU9[0]<=qpiCommand[shifter^7];
-          shifter<=shifter+1;        
-        end    
-
-        stateIdle: begin
-          o_busy<=0;
-          direction<=8'b0; // all 'Z', stay put
-          action<=DONOTHING;
-
-          if (i_cs==0) begin
-            if (i_write==1) begin 
-              action<=DOWRITE;
-              qpiCommand<=SPIQuadWrite;
-              byteToWrite<=i_dataToWrite;
-            end
-            else begin
-              action<=DOREAD;
-              qpiCommand<=SPIQuadRead;
-            end
-            bank<=i_bank;
-            address<=i_address;
-            shifter<=0;
-            cntWaitCycles<=WAITCYCLES;
-            o_busy<=1;
-            o_dataReady<=0;
-          end                      
-        end
-
-        sendQPIWriteCmd, 
-        sendQPIReadCmd: begin          
-          if (!bank) begin
-            direction<=8'b00001111;
-            if (shifter<4) dataU7[3:0]<=qpiCommand[7:4];
-            else dataU7[3:0]<=qpiCommand[3:0];
+          o_busy<=1;
+          if (i_write) begin 
+            action<=DOWRITE;
+            qpiCommand<=SPIQuadWrite;
+            byteToWrite<=i_dataToWrite;
           end
           else begin
-            direction<=8'b11110000; // QPI enabled. Use all data lines to send EB (read) or 38 (write)
-            if (shifter<4) dataU9[3:0]<=qpiCommand[7:4];
-            else dataU9[3:0]<=qpiCommand[3:0];
+            action<=DOREAD;
+            cntWaitCycles<=WAITCYCLES;
+            qpiCommand<=SPIQuadRead;
           end
-          shifter<=shifter+4; 
-        end
+        end 
+      end
 
-        sendQPIAddress: begin
+      sendQPIWriteCmd, 
+      sendQPIReadCmd: begin          
+        if (!bank) begin
+          direction<=8'b00001111;
+          if (shifter<4) dataU7[3:0]<=qpiCommand[7:4];
+          else dataU7[3:0]<=qpiCommand[3:0];
+        end
+        else begin
+          direction<=8'b11110000; // QPI enabled. Use all data lines to send EB (read) or 38 (write)
+          if (shifter<4) dataU9[3:0]<=qpiCommand[7:4];
+          else dataU9[3:0]<=qpiCommand[3:0];
+        end
+        shifter<=shifter+4; 
+      end
+
+      sendQPIAddress: begin
+        if (!bank) begin
           direction<=8'b00001111; // all pins active
-          if (bank) direction<=8'b11110000; // all pins active
           case (shifter) 
-            8:  if (!bank) dataU7[3:0]<=address[23:20];
-                else dataU9[3:0]<=address[23:20];
-            9:  if (!bank) dataU7[3:0]<=address[19:16];
-                else dataU9[3:0]<=address[19:16];
-            10: if (!bank) dataU7[3:0]<=address[15:12];
-                else dataU9[3:0]<=address[15:12];      
-            11: if (!bank) dataU7[3:0]<=address[11:8];
-                else dataU9[3:0]<=address[11:8];
-            12: if (!bank) dataU7[3:0]<=address[7:4];
-                else dataU9[3:0]<=address[7:4];
-            13: if (!bank) dataU7[3:0]<=address[3:0];
-                else dataU9[3:0]<=address[3:0];
+            8:  dataU7[3:0]<=address[23:20];
+            9:  dataU7[3:0]<=address[19:16];
+            10: dataU7[3:0]<=address[15:12];
+            11: dataU7[3:0]<=address[11:8];
+            12: dataU7[3:0]<=address[7:4];
+            13: dataU7[3:0]<=address[3:0];
           endcase
-          shifter<=shifter+1;        
         end
-
-        /* We have to wait for the psram to fetch our data before we can
-            actually read after having sent the address. */
-
-        waitCycles: begin
-          direction<=8'b00000000; // all pins Z
-          if (cntWaitCycles>0) cntWaitCycles<=cntWaitCycles-1;
-          shifter<=0;
-        end
-
-        writeData: begin
-          direction<=8'b00001111; // all pins active
-          if (bank) direction<=8'b11110000; // all pins active
+        else begin
+          direction<=8'b11110000; // all pins active
           case (shifter) 
-            14: if (!bank) dataU7[3:0]<=byteToWrite[7:4];
-                else dataU9[3:0]<=byteToWrite[7:4];      
-            15: begin
-                  if (!bank) dataU7[3:0]<=byteToWrite[3:0];
-                  else dataU9[3:0]<=byteToWrite[3:0];
-                  action<=DONOTHING;
-                end
+            8:  dataU9[3:0]<=address[23:20];
+            9:  dataU9[3:0]<=address[19:16];
+            10: dataU9[3:0]<=address[15:12];
+            11: dataU9[3:0]<=address[11:8];
+            12: dataU9[3:0]<=address[7:4];
+            13: dataU9[3:0]<=address[3:0];
           endcase
-          shifter<=shifter+1;      
         end
+        shifter<=shifter+1;        
+      end
 
-        readData: begin
-          if (shifter==0) begin
-            if (!bank) begin
-              o_dataRead[4]<=io_psram_data0;
-              o_dataRead[5]<=io_psram_data1;
-              o_dataRead[6]<=io_psram_data2;
-              o_dataRead[7]<=io_psram_data3;
-            end
-            else begin
-              o_dataRead[4]<=io_psram_data4;
-              o_dataRead[5]<=io_psram_data5;
-              o_dataRead[6]<=io_psram_data6;
-              o_dataRead[7]<=io_psram_data7;
-            end
-          end  
-          else if (shifter==1) begin
-            if (!bank) begin
-              o_dataRead[0]<=io_psram_data0;
-              o_dataRead[1]<=io_psram_data1;
-              o_dataRead[2]<=io_psram_data2;
-              o_dataRead[3]<=io_psram_data3;
-            end
-            else begin
-              o_dataRead[0]<=io_psram_data4;
-              o_dataRead[1]<=io_psram_data5;
-              o_dataRead[2]<=io_psram_data6;
-              o_dataRead[3]<=io_psram_data7;
-            end
+      /* We have to wait for the psram to fetch our data before we can
+          actually read after having sent the address. */
+
+      waitCycles: begin
+        direction<=8'b00000000; // all pins Z
+        if (cntWaitCycles>0) cntWaitCycles<=cntWaitCycles-1;
+        shifter<=0;
+      end
+
+      writeData: begin
+        direction<=8'b00001111; // all pins active
+        if (bank) direction<=8'b11110000; // all pins active
+        case (shifter) 
+          14: if (!bank) dataU7[3:0]<=byteToWrite[7:4];
+              else dataU9[3:0]<=byteToWrite[7:4];      
+
+          15: if (!bank) dataU7[3:0]<=byteToWrite[3:0];
+              else dataU9[3:0]<=byteToWrite[3:0];
+        endcase
+        shifter<=shifter+1;      
+      end
+
+      readData: begin
+        case (shifter) 
+          0: 
+            if (bank==0) o_dataRead[7:4]={io_psram_data3,io_psram_data2,io_psram_data1,io_psram_data0};
+            else o_dataRead[7:4]={io_psram_data7,io_psram_data6,io_psram_data5,io_psram_data4};
+         
+          1: 
+            if (bank==0) o_dataRead[3:0]={io_psram_data3,io_psram_data2,io_psram_data1,io_psram_data0};
+            else o_dataRead[3:0]={io_psram_data7,io_psram_data6,io_psram_data5,io_psram_data4};
+
+          default: begin
+            //o_dataRead<='h00; Testing only
             o_dataReady<=1;
-            o_busy<=0;
-          end          
-          shifter<=shifter+1;               
-        end
-        
-        default: ;        
-      
-      endcase
-    end
+          end
+          
+        endcase
+        shifter<=shifter+1;
+      end
+    endcase 
   end
 endmodule
  
