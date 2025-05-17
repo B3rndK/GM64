@@ -11,7 +11,7 @@
 module clockGen(input wire clk10Mhz,
    				output logic clk100Mhz);
 								
-parameter sysclk=100; // We need at least 48 Mhz for the 'PSRAM race'...sysclk/50 will provide us 0.9582 (PAL) phi
+parameter sysclk=75; // We need at least 48 Mhz for the 'PSRAM race'...sysclk/50 will provide us 0.9582 (PAL) phi
 parameter referenceClk=10; 	 // Reference clock is 10Mhz coming from FPGA
 // wire clkSysPLL;
 wire usr_pll_lock_stdy, usr_pll_lock;

@@ -21,8 +21,8 @@ typedef enum  {
 
 typedef enum logic [7:0] {
   enableQPIModeCmd=8'b00110101,
-  SPIQuadWrite=8'b00111000, // 38h, 2x io only
-  SPIQuadRead=8'b11101011 // EB
+  SPIQuadWrite=8'b00111000, // 3,8    
+  SPIQuadRead=8'b11101011 // E,B
 } QPICommands;
 
 typedef enum bit {
