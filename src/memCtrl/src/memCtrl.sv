@@ -13,23 +13,16 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                 input logic i_write, // 0-read, 1-write
                 input logic [23:0] i_address, // 24-bit address
                 input logic i_bank, // 0- U7, 1- U9
-                output wire o_psram_sclk,                
+                output logic o_psram_sclk,                
                 input  logic [7:0] i_dataToWrite,
                 output logic [7:0] o_dataRead,
-                inout wire io_psram_data0,
-                inout wire io_psram_data1,
-                inout wire io_psram_data2,
-                inout wire io_psram_data3,
-                inout wire io_psram_data4,                
-                inout wire io_psram_data5,
-                inout wire io_psram_data6,
-                inout wire io_psram_data7,            
+                inout  wire [7:0] io_psram_data,
                 output logic o_psram_cs,
                 output logic o_busy, // 1-Busy
                 output logic o_dataReady,
                 output logic led); // 1-ready
 
-  parameter initDelayInClkCyles=7800; // 150us @ 100Mhz+some bonus
+  parameter initDelayInClkCyles=7500; // 150us @ 100Mhz+some bonus
   localparam logic[3:0] WAITCYCLES=6;
   logic [3:0] dataU7; // Bank 0
   logic [3:0] dataU9; // Bank 1
@@ -54,19 +47,16 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
 
   // Direction direction; // 0- in (read), 1-out (write)
   logic [7:0] direction;
-
-  assign io_psram_data0=(direction[0]==1 ? dataU7[0] : 1'bZ);
-  assign io_psram_data1=(direction[1]==1 ? dataU7[1] : 1'bZ);
-  assign io_psram_data2=(direction[2]==1 ? dataU7[2] : 1'bZ);
-  assign io_psram_data3=(direction[3]==1 ? dataU7[3] : 1'bZ);
-
-  assign io_psram_data4=(direction[4]==1 ? dataU9[0] : 1'bZ);
-  assign io_psram_data5=(direction[5]==1 ? dataU9[1] : 1'bZ);
-  assign io_psram_data6=(direction[6]==1 ? dataU9[2] : 1'bZ);
-  assign io_psram_data7=(direction[7]==1 ? dataU9[3] : 1'bZ);
-
   assign o_psram_cs= psram_cs;
   
+  genvar i;
+  generate
+    for (i = 0; i<4 ; i++) begin
+        assign io_psram_data[i] = direction[i] ? dataU7[i] : 1'bZ;
+        assign io_psram_data[i+4] = direction[i+4] ? dataU9[i] : 1'bZ;        
+    end
+  endgenerate
+
   always_ff @(posedge i_clkRAM) 
     if (!reset) state<=stateXXX;
     else state<=next;  
@@ -153,6 +143,9 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         dataU9='b0;       
         delayCounter<=initDelayInClkCyles;
         stopClock<=1;
+        shifter<=0;
+        o_dataReady<=0;
+        o_dataRead<=8'h00;
       end
 
       delayAfterReset: begin 
@@ -176,7 +169,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
         o_busy<=0;
         direction<=8'b0; // all 'Z', stay put
 
-        if (~i_cs) begin
+        if (i_cs==0) begin
           o_dataReady<=0;
           bank<=i_bank;
           address<=i_address;
@@ -259,22 +252,20 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
       end
 
       readData: begin
+        shifter<=shifter+1;
         case (shifter) 
           0: 
-            if (bank==0) o_dataRead[7:4]={io_psram_data3,io_psram_data2,io_psram_data1,io_psram_data0};
-            else o_dataRead[7:4]={io_psram_data7,io_psram_data6,io_psram_data5,io_psram_data4};
-         
-          1: 
-            if (bank==0) o_dataRead[3:0]={io_psram_data3,io_psram_data2,io_psram_data1,io_psram_data0};
-            else o_dataRead[3:0]={io_psram_data7,io_psram_data6,io_psram_data5,io_psram_data4};
-
-          default: begin
-            //o_dataRead<='h00; Testing only
-            o_dataReady<=1;
-          end
-          
+            if (bank==0) o_dataRead[7:4]=io_psram_data[3:0];
+            else o_dataRead[7:4]=io_psram_data[7:4];
+          1: begin 
+              if (bank==0) o_dataRead[3:0]=io_psram_data[3:0];
+              else o_dataRead[3:0]=io_psram_data[7:4];
+            end
+          2: begin
+              o_busy<=0;
+              o_dataReady<=1;
+            end
         endcase
-        shifter<=shifter+1;
       end
     endcase 
   end

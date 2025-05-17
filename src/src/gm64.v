@@ -12,16 +12,9 @@ module gm64(input clk0, // 10Mhz coming from FPGA
             input fpga_but1, 
             output o_hsync, 
             output o_vsync, 
-            output wire o_psram_cs,
-            output wire o_psram_sclk,
-            inout  wire io_psram_data0,
-            inout  wire io_psram_data1,
-            inout  wire io_psram_data2,
-            inout  wire io_psram_data3,
-            inout  wire io_psram_data4,
-            inout  wire io_psram_data5,
-            inout  wire io_psram_data6,
-            inout  wire io_psram_data7,            
+            output logic o_psram_cs,
+            output logic o_psram_sclk,
+            inout wire [7:0] io_psram_data,
             output [3:0] o_red, 
             output [3:0] o_green, 
             output [3:0] o_blue,
@@ -58,9 +51,7 @@ module gm64(input clk0, // 10Mhz coming from FPGA
   logic dataReady;
 
   logic [7:0] dataToWrite;
-  logic  [7:0] dataReadFinal;
-  logic  [7:0] dataRead;
-  logic [7:0] dataFromRam;
+  logic [7:0] dataRead;
   logic busy;
   logic isReadOK;
   
@@ -89,24 +80,8 @@ reset U20 (.clk(clk0),
              .led(led2)
             );  
 
-logic psRamCS;
-assign o_psram_cs=psRamCS;
-
-logic psram_data0,psram_data1,psram_data2,psram_data3;
-logic psram_data4,psram_data5,psram_data6,psram_data7;
-
-assign io_psram_data0=psram_data0;
-assign io_psram_data1=psram_data1;
-assign io_psram_data2=psram_data2;
-assign io_psram_data3=psram_data3;
-assign io_psram_data4=psram_data4;
-assign io_psram_data5=psram_data5;
-assign io_psram_data6=psram_data6;
-assign io_psram_data7=psram_data7;
-
-
   memCtrl U13_U25(
-    .i_clkRAM(clk100Mhz), 
+    .i_clkRAM(clk0), 
     .reset(rst), 
     .i_cs(i_cs), 
     .i_write(writeToRam), 
@@ -115,15 +90,8 @@ assign io_psram_data7=psram_data7;
     .o_psram_sclk(o_psram_sclk),
     .i_dataToWrite(dataToWrite), 
     .o_dataRead(dataRead), 
-    .io_psram_data0(io_psram_data0),
-    .io_psram_data1(io_psram_data1),
-    .io_psram_data2(io_psram_data2),
-    .io_psram_data3(io_psram_data3),
-    .io_psram_data4(io_psram_data4),
-    .io_psram_data5(io_psram_data5),
-    .io_psram_data6(io_psram_data6),
-    .io_psram_data7(io_psram_data7),
-    .o_psram_cs(psRamCS),
+    .io_psram_data(io_psram_data),
+    .o_psram_cs(o_psram_cs),
     .o_busy(busy),
     .o_dataReady(dataReady),
     .led(led)
@@ -132,7 +100,7 @@ assign io_psram_data7=psram_data7;
  int  counter;
 
 
-  always_ff @(posedge clk100Mhz) begin
+  always_ff @(posedge clk0) begin
     if (!rst) begin
       state<=sstateReset;
       led3<=0;
@@ -146,6 +114,7 @@ assign io_psram_data7=psram_data7;
     end  
     else begin
       i_cs<=1;
+
       case (state) 
         sstateReset: begin                   
           counter<=counter-1;
@@ -158,9 +127,9 @@ assign io_psram_data7=psram_data7;
             i_cs<=0;
             i_bank<=0;
             writeToRam<=1;
-            addrBusMemCtrl<=24'h1002;
-            dataToWrite<=8'h00;
-            counter<=24'd5555555;
+            addrBusMemCtrl<=24'h01;
+            dataToWrite<=8'hff;
+            counter<=24'd555555;
             state<=sstateWaitAfterWrite;
           end
         end
@@ -176,7 +145,7 @@ assign io_psram_data7=psram_data7;
             i_cs<=0;
             i_bank<=0;
             writeToRam<=0;
-            addrBusMemCtrl<=24'h1002; 
+            addrBusMemCtrl<=24'h01; 
             state<=sstateRun;
           end
           else state<=sstateReadRAM;
@@ -187,12 +156,12 @@ assign io_psram_data7=psram_data7;
             state<=sstateFinal;
           end
           else begin
-             state=sstateRun;
+             state<=sstateRun;
           end
         end
         
         sstateFinal: begin
-          if (dataRead==8'h00) led3<=1;
+          if (dataRead>=8'h22) led3<=1;
           state<=sstateFinal;
         end
 
