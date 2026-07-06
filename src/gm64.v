@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
-// Copyright (C)2024 Bernd Krekeler, Herne, Germany
+// Copyright (C)2024, 2026 Bernd Krekeler, Herne, Germany
 
 `ifndef GM64_H
 `define GM64_H
 
-`include "../reset/src/reset.v"
-`include "../memCtrl/src/memCtrl.vh"
+`include "reset/src/reset.v"
+`include "memCtrl/src/memCtrl.vh"
 
 module gm64(input clk0, // 10Mhz coming from FPGA
             input reset, 

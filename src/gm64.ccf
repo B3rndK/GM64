@@ -70,6 +70,8 @@ Pin_in  "clk0"  Loc = "IO_SB_A8" | SCHMITT_TRIGGER=true; # 10 Mhz
 Pin_out  "o_led" Loc = "IO_SB_B6"; 
 Pin_in  "fpga_but1" Loc = "IO_SB_B7" | PULLUP=true;
 
+Pin_in "reset" Loc = "IO_WB_B8";
+
 # VGA
 Pin_out "o_hsync" Loc = "IO_WB_A1";
 Pin_out "o_vsync" Loc = "IO_WB_B1";

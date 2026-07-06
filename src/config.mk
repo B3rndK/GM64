@@ -8,10 +8,12 @@ SRC=~/git/GM64
 OSS= /home/bernd/Applications/oss-cad-suite/bin
 YOSYS = $(OSS)/yosys$(EXE)
 #YOSYS = ~/GateMate/bin/yosys/yosys$(EXE)
-PR    = ~/GateMate/bin/p_r/p_r$(EXE)
+PR_OLD    = ~/GateMate/bin/p_r/p_r$(EXE)
+PR = $(OSS)/nextpnr-himbaechel
 #OFL   = ~/git/openFPGALoader/build/openFPGALoader$(EXE)
 OFL = $(OSS)/openFPGALoader$(EXE)
 OFLFLAGS =-b olimex_gatemateevb
+PACK= $(OSS)/gmpack
 
 GTKW = /usr/bin/gtkwave
 IVL_SVL = $(OSS)/verilator
@@ -48,12 +50,17 @@ synth_sv: synth_svlog
 
 # System verilog
 synth_svlog: $(VLOG_SRC) #
-#$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 src/gm64.v memCtrl/src/memCtrl.v  reset/src/reset.v clockGen/src/clockGen.sv visuMon/src/visuMon.sv $(CELLS_SYNTH_SV) $^ ; synth_gatemate -nomx8 -vlog net/$(TOP)_synth.v'
-	$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 src/gm64.v memCtrl/src/memCtrl.sv clockGen/src/clockGen.sv visuMon/src/visuMon.sv visuMon/syncGen/src/syncGen.v $(CELLS_SYNTH_SV) $^ ; synth_gatemate -nomx8 -vlog net/$(TOP)_synth.v'
+#$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 ./gm64.v memCtrl/src/memCtrl.v  reset/src/reset.v clockGen/src/clockGen.sv visuMon/src/visuMon.sv $(CELLS_SYNTH_SV) $^ ; synth_gatemate -nomx8 -vlog net/$(TOP)_synth.v'
+	$(YOSYS) -m slang -p 'read_slang --keep-hierarchy -top gm64 ./gm64.v memCtrl/src/memCtrl.sv clockGen/src/clockGen.sv visuMon/src/visuMon.sv visuMon/syncGen/src/syncGen.v $(CELLS_SYNTH_SV) $^ ; synth_gatemate -luttree -nomx8 -vlog net/$(TOP)_synth.v'
 
 # Verilog
 synth_vlog: $(VLOG_SRC)
-	$(YOSYS) -ql log/synth.log -p 'read_verilog -sv src/gm64.v clockGen/src/clockGen.sv visuMon/src/visuMon.sv visuMon/syncGen/src/syncGen.v $^; synth_gatemate -top $(TOP) -nomx8 -vlog net/$(TOP)_synth.v'
+	# - noiopad: disable I/O buffer insertion (useful for hierarchical or out-of-context flows).
+  # -noclkbuf: disable automatic clock buffer insertion.
+	# -nobram:  do not use CC_BRAM_20K or CC_BRAM_40K cells in the output netlist.
+	# -noaddf – do not use CC_ADDF full adder cells in the output netlist.
+  # -nomult – do not use CC_MULT multiplier cells in the output netlist
+	$(YOSYS) -ql log/synth.log -p 'read_verilog -defer -sv ./gm64.v clockGen/src/clockGen.sv visuMon/src/visuMon.sv visuMon/syncGen/src/syncGen.v memCtrl/src/memCtrl.sv $^; synth_gatemate -top $(TOP) -luttree -nomx8; write_json net/$(TOP)_synth.json; write_verilog net/$(TOP)_synth.v'
 
 # VHDL
 synth_vhdl: $(VHDL_SRC)
@@ -61,13 +68,17 @@ synth_vhdl: $(VHDL_SRC)
 
 impl:
 #$(PR) -tm 1 -i net/$(TOP)_synth.v -L $(CELLS_IMPL) -o $(TOP) $(PRFLAGS) > log/$@.log
-	$(PR) -tm 1 -i net/$(TOP)_synth.v  -o $(TOP) $(PRFLAGS)
+	#  --gui 
+	$(PR) -l log/placenroute.log --device=CCGM1A1 -o fpga_mode=economy -o time_mode=typical -o strategy=full --json net/$(TOP)_synth.json -o ccf=$(TOP).ccf -o out=impl.txt --router router2
+  
+pack:
+	$(PACK) impl.txt bitstream.bit
 
 jtag:
-	$(OFL) $(OFLFLAGS) $(TOP)_00.cfg
+	$(OFL) -b olimex_gatemateevb --freq 6M bitstream.bit
 
 jtag-flash:
-	$(OFL) $(OFLFLAGS) -b olimex_gatemateevb -f --verify $(TOP)_00.cfg
+	$(OFL) -b olimex_gatemateevb --freq 6M bitstream.bit
 
 spi:
 	$(OFL) $(OFLFLAGS) -b olimex_gatemateevb -m $(TOP)_00.cfg
@@ -75,7 +86,7 @@ spi:
 spi-flash:
 	$(OFL) $(OFLFLAGS) -b olimex_gatemateevb -f --verify $(TOP)_00.cfg
 
-all: synth impl jtag
+all: synth impl pack jtag
 
 all_sv: synth_sv impl jtag
 
@@ -129,3 +140,4 @@ clean:
 	$(RM) "*.vcd" -delete
 	$(RM) "*.vvp" -delete
 	$(RM) "*.gtkw" -delete
+	$(RM) "*.bit" -delete
