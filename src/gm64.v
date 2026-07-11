@@ -6,6 +6,7 @@
 
 `include "reset/src/reset.v"
 `include "memCtrl/src/memCtrl.vh"
+`include "visuMon/src/visuMon.svh"
 
 module gm64(input clk0, // 10Mhz coming from FPGA
             input reset, 

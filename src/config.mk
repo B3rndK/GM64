@@ -17,19 +17,19 @@ PACK= $(OSS)/gmpack
 
 GTKW = /usr/bin/gtkwave
 IVL_SVL = $(OSS)/verilator
-IVL = iverilog
+IVL = iverilog -g2012 -I ../src/visuMon/src
 VVP = vvp
-IVLFLAGS = -Winfloop -g2012 -gspecify -Ttyp -I ./ -I ./src -I ./src/src -I ../src/memCtrl/src -I ../src/clockGen/src -I ../src/visuMon/src ../src/VisuMon # -v #-delaborate
+IVLFLAGS = -Winfloop -g2012 -gspecify -Ttyp -I ./  -I ../src/memCtrl/src -I ../src/clockGen/src -I ../src/visuMon/src # -v #-delaborate
 IVL_SVL_FLAGS= -binary --top gm64_tb --trace-fst --assert -I./reset/src -I./sketchpad/src -I./counter/src -I./clockGen/src/ -I./memCtrl/src/ -I./visuMon/src/ -I./ -I./src -I./src/src -I./visuMon/src -I./visuMon/syncGen/src -I./VIC6569/src
 SV_INCLUDES = -IclockGen/src -IsyncGen/src -IVIC6569/src -Ireset/src -Icounter/src -ImemCtrl/src -Isketchpad/src -IvisuMon/src
 
 ## simulation libraries
-CELLS_SIM = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_sim.v
-CELLS_SIM_SV =	/home/bernd/GateMate/bin/yosys/share/gatemate/cells_sim.v # Primitives for simulation
+CELLS_SIM = ~/Applications/oss-cad-suite/share/yosys/gatemate/cells_sim.v
+CELLS_SIM_SV =	~/Applications/oss-cad-suite/share/yosys/gatemate/cells_sim.v
 
 # synthesis libraries
-CELLS_SYNTH = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_bb.v # Primitives for synthesis
-CELLS_SYNTH_SV = /home/bernd/GateMate/bin/yosys/share/gatemate/cells_bb.v # Primitives for synthesis
+CELLS_SYNTH = ~/Applications/oss-cad-suite/share/yosys/gatemate/cells_bb.v # Primitives for synthesis
+CELLS_SYNTH_SV = ~/Applications/oss-cad-suite/share/yosys/gatemate/cells_bb.v # Primitives for synthesis
 #CELLS_SYNTH_SV= /home/bernd/Applications/oss-cad-suite/share/yosys/gatemate/cells_bb.v
 CELLS_IMPL = /home/bernd/GateMate/bin/p_r/cpelib.v
 
@@ -94,18 +94,21 @@ all_sv: synth_sv impl jtag
 vlog_sim_sv.vvp:
 	$(IVL_SVL) $(CELLS_SIM_SV) $(IVL_SVL_FLAGS)  $(VLOG_SRC) ./sim/gm64_tb.sv
 
-verilator-memCtrl.vvp:
-	$(IVL_SVL) $(CELLS_SIM_SV) -binary --timing +1800-2023ext+sv --threads 8 --coverage --trace-fst --assert --top memCtrl_tb -I../memCtrl/sim -I../memCtrl/src memCtrl_tb.v memCtrl.sv
+verilator-memCtrl:
+	$(IVL_SVL) $(CELLS_SIM_SV) -binary --timing +1800-2023ext+sv --threads 8 --coverage --trace-fst --assert --top memCtrl_tb -I../memCtrl/src assert.vh memCtrl_tb.v memCtrl.sv 
 	
 ## icarus verilog simulation targets
 vlog_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.sv $(CELLS_SIM)
+	$(IVL) $(IVLFLAGS) -g2012  -o sim/$@ $(VLOG_SRC) sim/$(TOP)_tb.sv  $(CELLS_SIM)
+
+icarus-memCtrl:
+	$(IVL) $(IVLFLAGS) -g2012 -o sim/$@ ./src/memCtrl.vh ./src/assert.vh ./src/memCtrl.sv  ./src/memCtrl_tb.v  $(CELLS_SIM)
 
 synth_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.sv $(CELLS_SYNTH) -I ./ -I ./src -I ./src/src -I ../src/memCtrl/src -I ../src/visuMon/src
+	$(IVL) $(IVLFLAGS) -g2012  -o sim/$@ net/$(TOP)_synth.v sim/$(TOP)_tb.sv  $(CELLS_SYNTH) -I ./  -I ../src/memCtrl/src -I ../src/visuMon/src
 
 impl_sim.vvp:
-	$(IVL) $(IVLFLAGS) -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.sv $(CELLS_IMPL) -I ./ -I ./src -I ./src/src -I ../src/memCtrl/src -I ../src/visuMon/src
+	$(IVL) $(IVLFLAGS) -g2012  -o sim/$@ $(TOP)_00.v sim/$(TOP)_tb.sv   $(CELLS_IMPL) -I ./  -I ../src/memCtrl/src -I ../src/visuMon/src
 
 .PHONY: %sim %sim.vvp
 
@@ -121,7 +124,7 @@ clean:
 	$(RM) "*.log" -delete
 	$(RM) "*_synth.v" -delete
 	$(RM) "*.history" -delete
-	$(RM) "*.refwire" -delete
+	$(RM) "*.refwire" -deletemake
 	$(RM) "*.refparam" -delete
 	$(RM) "*.refcomp" -delete
 	$(RM) "*.pos" -delete

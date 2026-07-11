@@ -3,9 +3,7 @@
 
 `timescale 1us / 1ns
 
-`include "assert.vh"
-`include "memCtrl.vh"
-
+`include "./src/memCtrl.vh"
 
 module memCtrl_tb();
   
@@ -22,7 +20,7 @@ module memCtrl_tb();
   reg _cs;
   logic bank;
   logic o_psram_sclk;
-
+  logic led;
 
 memCtrl U13_U25(
   .i_clkRAM(clkRAM), 
@@ -37,7 +35,8 @@ memCtrl U13_U25(
   .io_psram_data(io_psram_data),
   .o_psram_cs(o_psram_cs),
   .o_busy(o_busy),
-  .o_dataReady(o_dataReady)
+  .o_dataReady(o_dataReady),
+  .led(led)
   );
 
 initial begin
@@ -55,8 +54,8 @@ end
 initial begin
           // $sdf_annotate("memCtrl_tb.sdf", U1);
           // $dumpoff; $dumpon;
-          // $dumpfile("sim/memCtrl_tb.vcd");
-          // $dumpvars(0, memCtrl_tb);
+          $dumpfile("sim/memCtrl_tb.vcd");
+          $dumpvars(0, memCtrl_tb);
 #2        $display("Starting PSRAM write test bank 0. Resetting controller.");          
          `ASSERT(0==U13_U25.o_psram_cs);
           reset=0;
@@ -265,12 +264,11 @@ initial begin
 #2        `ASSERT(U13_U25.psram_cs==0);
 #2        `ASSERT((U13_U25.state.name()=="stateIdle"));
           `ASSERT(o_busy==0);
-#2        `ASSERT(U13_U25.psram_cs==1);          
-#100      `ASSERT(o_busy==0);
-          `ASSERT((U13_U25.state.name()=="stateIdle"));         
+#2        `ASSERT(U13_U25.psram_cs==1);
+#100    `ASSERT(o_busy==0);
+          `ASSERT((U13_U25.state.name()=="stateIdle"));
           `FINAL_REPORT;
 #2        $display("Finished. time=%3d, clk=%b, reset=%b",$time, clkRAM, reset); 
           $finish(0);
 end
-
 endmodule

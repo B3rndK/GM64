@@ -2,7 +2,6 @@
 // Copyright (C)2024, 2025 Bernd Krekeler, Herne, Germany
 
 `timescale 1us / 1ns
-`include "memCtrl.vh"
 
 /* 24-bit address, 8-Bit memory controller interface using 2x LY68S3200 
    32M (4Mx8) Bits Serial Pseudo-SRAM with QPI divided into 2 banks. */
@@ -22,7 +21,7 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
                 output logic o_dataReady,
                 output logic led); // 1-ready
 
-  parameter initDelayInClkCyles=7500; // 150us @ 100Mhz+some bonus
+  logic[15:0] initDelayInClkCyles=7500; // 150us @ 100Mhz+some bonus
   localparam logic[3:0] WAITCYCLES=6;
   logic [3:0] dataU7; // Bank 0
   logic [3:0] dataU9; // Bank 1
@@ -270,8 +269,3 @@ module memCtrl( input logic i_clkRAM,  // RAM clock (100Mhz)
     endcase 
   end
 endmodule
- 
-
-
-  
-  
